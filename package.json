@@ -1,0 +1,24 @@
+{
+  "name": "shopify-store-products-scraper",
+  "version": "1.0.0",
+  "description": "Apify Actor that extracts products, variants, and prices from any Shopify store via the public products.json endpoint",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "node dist/main.js",
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["apify", "shopify", "ecommerce", "products", "scraper", "crawlee"],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "apify": "^3.2.0",
+    "crawlee": "^3.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

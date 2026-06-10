@@ -1,0 +1,39 @@
+{
+  "title": "Shopify Store Products Scraper",
+  "description": "Provide one or more Shopify store domains or URLs to extract their full product catalog (products, variants, prices, images). No login or API key required.",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "storeUrls": {
+      "title": "Shopify Store URLs / Domains",
+      "description": "List of Shopify store domains or URLs, e.g. \"allbirds.com\" or \"https://www.allbirds.com\".",
+      "type": "array",
+      "editor": "stringList",
+      "prefill": ["allbirds.com"],
+      "default": ["allbirds.com"]
+    },
+    "maxProductsPerStore": {
+      "title": "Max Products Per Store",
+      "description": "Maximum number of products to scrape per store. Set to 0 for all products.",
+      "type": "integer",
+      "editor": "number",
+      "default": 1000,
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "productType": {
+      "title": "Filter by Product Type",
+      "description": "Only keep products whose product type matches this exactly (case-insensitive). Leave empty for all.",
+      "type": "string",
+      "editor": "textfield",
+      "default": ""
+    },
+    "proxyConfiguration": {
+      "title": "Proxy Configuration",
+      "description": "Most Shopify stores serve products.json openly. Enable proxies (residential recommended) for stores behind bot protection.",
+      "type": "object",
+      "editor": "proxy",
+      "default": { "useApifyProxy": true }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "actorSpecification": 1,
+  "name": "shopify-store-products-scraper",
+  "title": "Shopify Store Products Scraper - Products, Variants & Prices",
+  "description": "Scrape products, variants, prices, images, vendors, and tags from any Shopify store. No login or API key needed. Export to JSON, CSV, or Excel.",
+  "version": "1.0",
+  "categories": ["ECOMMERCE", "BUSINESS", "LEAD_GENERATION"],
+  "dockerfile": "Dockerfile",
+  "input": "../INPUT_SCHEMA.json",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "views": {
+        "products": {
+          "title": "Products",
+          "transformation": {
+            "fields": ["productId", "title", "vendor", "productType", "minPrice", "maxPrice", "available", "variantsCount", "tags", "productUrl", "imageUrl", "storeDomain", "publishedAt", "scrapedAt"]
+          },
+          "display": {
+            "component": "table",
+            "properties": {
+              "productId": { "label": "Product ID", "format": "text" },
+              "title": { "label": "Title", "format": "text" },
+              "vendor": { "label": "Vendor", "format": "text" },
+              "productType": { "label": "Type", "format": "text" },
+              "minPrice": { "label": "Min Price", "format": "number" },
+              "maxPrice": { "label": "Max Price", "format": "number" },
+              "available": { "label": "Available", "format": "boolean" },
+              "variantsCount": { "label": "Variants", "format": "number" },
+              "tags": { "label": "Tags", "format": "array" },
+              "productUrl": { "label": "URL", "format": "link" },
+              "imageUrl": { "label": "Image", "format": "image" },
+              "storeDomain": { "label": "Store", "format": "text" },
+              "publishedAt": { "label": "Published", "format": "date" },
+              "scrapedAt": { "label": "Scraped At", "format": "text" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "pricingInfo": {
+    "pricingModel": "PAY_PER_EVENT",
+    "pricingPerEvent": {
+      "actorChargeEvents": {
+        "product-scraped": {
+          "eventTitle": "Product Scraped",
+          "eventDescription": "Charged for each Shopify product extracted and saved to the dataset.",
+          "eventPriceUsd": 0.0015
+        }
+      }
+    }
+  },
+  "defaultRunOptions": {
+    "build": "latest",
+    "memoryMbytes": 1024,
+    "timeoutSecs": 3600
+  },
+  "minMemoryMbytes": 256,
+  "maxMemoryMbytes": 4096
+}
