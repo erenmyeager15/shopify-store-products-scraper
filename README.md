@@ -81,6 +81,14 @@ You are only charged for products actually extracted. Apify platform usage and p
 - **Lead generation** - build datasets of products across many stores
 - **Price-change alerts** - run on a schedule and diff results
 
+## How to Scrape Shopify Store Products (Step by Step)
+
+1. Click **Try for free** / **Run**.
+2. Enter one or more Shopify store domains in `storeUrls` (e.g. `allbirds.com`).
+3. Set `maxProductsPerStore` (start small to test, or `0` for the entire catalog).
+4. Optionally filter by `productType`, then click **Run**.
+5. When the run finishes, export results to JSON, CSV, Excel, or HTML, or pull them via the Apify API.
+
 ## Notes & tips
 
 - Most Shopify stores serve `products.json` openly. A minority add bot protection - enable **residential proxies** for those, or they'll be skipped gracefully.
