@@ -4,7 +4,7 @@
   "title": "Shopify Store Products Scraper - Products, Variants & Prices",
   "description": "Scrape products, variants, prices, images, vendors, and tags from any Shopify store. No login or API key needed. Export to JSON, CSV, or Excel.",
   "version": "1.0",
-  "categories": ["ECOMMERCE", "BUSINESS", "LEAD_GENERATION"],
+  "categories": ["ECOMMERCE", "BUSINESS"],
   "dockerfile": "Dockerfile",
   "input": "../INPUT_SCHEMA.json",
   "storages": {
