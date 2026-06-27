@@ -1,0 +1,14 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "Shopify Store Products Scraper Output",
+  "description": "Structured Shopify product catalog records with titles, vendors, product types, prices, variants, availability, tags, product URLs, image URLs, store domains, and scraped timestamps.",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "string",
+      "title": "Shopify product records",
+      "description": "Clean dataset items containing Shopify store product catalog, price, variant, and availability data.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    }
+  }
+}

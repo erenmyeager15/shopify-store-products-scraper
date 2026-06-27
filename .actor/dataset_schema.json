@@ -1,0 +1,76 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "type": "object",
+    "properties": {
+      "source": { "type": "string", "title": "Source" },
+      "searchQuery": { "type": "string", "title": "Search" },
+      "position": { "type": "integer", "title": "Position" },
+      "productId": { "type": ["string", "null"], "title": "Product ID" },
+      "title": { "type": "string", "title": "Title" },
+      "brand": { "type": "string", "title": "Brand" },
+      "price": { "type": ["number", "null"], "title": "Price" },
+      "mrp": { "type": ["number", "null"], "title": "MRP" },
+      "discountPercent": { "type": ["number", "null"], "title": "Discount %" },
+      "currency": { "type": "string", "title": "Currency" },
+      "packSize": { "type": "string", "title": "Pack size" },
+      "category": { "type": "string", "title": "Category" },
+      "rating": { "type": ["number", "null"], "title": "Rating" },
+      "ratingCount": { "type": ["number", "null"], "title": "Ratings" },
+      "inStock": { "type": ["boolean", "null"], "title": "In stock" },
+      "productUrl": { "type": ["string", "null"], "title": "Product URL" },
+      "imageUrl": { "type": ["string", "null"], "title": "Image" },
+      "scrapedAt": { "type": "string", "title": "Scraped at" }
+    }
+  },
+  "views": {
+    "products": {
+      "title": "Products",
+      "transformation": {
+        "fields": [
+          "source",
+          "searchQuery",
+          "position",
+          "productId",
+          "title",
+          "brand",
+          "price",
+          "mrp",
+          "discountPercent",
+          "currency",
+          "packSize",
+          "category",
+          "rating",
+          "ratingCount",
+          "inStock",
+          "productUrl",
+          "imageUrl",
+          "scrapedAt"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "source": { "label": "Source", "format": "text" },
+          "searchQuery": { "label": "Search", "format": "text" },
+          "position": { "label": "Position", "format": "number" },
+          "productId": { "label": "Product ID", "format": "text" },
+          "title": { "label": "Title", "format": "text" },
+          "brand": { "label": "Brand", "format": "text" },
+          "price": { "label": "Price", "format": "number" },
+          "mrp": { "label": "MRP", "format": "number" },
+          "discountPercent": { "label": "Discount %", "format": "number" },
+          "currency": { "label": "Currency", "format": "text" },
+          "packSize": { "label": "Pack size", "format": "text" },
+          "category": { "label": "Category", "format": "text" },
+          "rating": { "label": "Rating", "format": "number" },
+          "ratingCount": { "label": "Ratings", "format": "number" },
+          "inStock": { "label": "In stock", "format": "boolean" },
+          "productUrl": { "label": "Product URL", "format": "link" },
+          "imageUrl": { "label": "Image", "format": "image" },
+          "scrapedAt": { "label": "Scraped at", "format": "date" }
+        }
+      }
+    }
+  }
+}
