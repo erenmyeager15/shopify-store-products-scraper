@@ -1,106 +1,109 @@
-# Shopify Store Products Scraper - Products, Variants & Prices
+# Shopify Product Scraper: Catalog & Prices
 
-Extract the **full product catalog from any Shopify store** - no login, no API key, no app required. Get products, variants, prices, compare-at prices, SKUs, availability, images, vendors, product types, tags, and options. Export to **JSON, CSV, Excel, or HTML**, or pull via the Apify API.
+Scrape public Shopify product catalog rows from store domains for ecommerce research, price monitoring, product comparison, and catalog reporting. The Actor reads public Shopify `products.json` endpoints and saves clean product rows with titles, brands, prices, MRP, discounts, product types, stock status, image URLs, product URLs, and scrape timestamps.
 
-Perfect for **competitor price monitoring, e-commerce research, dropshipping, lead generation, and catalog analysis**.
+No Shopify login, Admin API token, app install, or store owner access is required. The Actor only collects public catalog data that the store exposes through its storefront.
 
-## Features
+## Quick Start
 
-- ✅ **No login or API key** - uses each store's public `products.json` endpoint
-- ✅ **Any Shopify store** - just pass the domain
-- ✅ **Multiple stores per run**
-- ✅ **Complete product data** - variants, prices, SKUs, availability, images, options, tags
-- ✅ **Automatic pagination** - scrape the entire catalog or cap it
-- ✅ **Fast & lightweight** - pure JSON, no headless browser
-- ✅ **Filter by product type**
-
-## Input
-
-| Parameter | Type | Description | Default |
-|-----------|------|-------------|---------|
-| `storeUrls` | `string[]` | Shopify store domains or URLs, e.g. `"allbirds.com"` | `["allbirds.com"]` |
-| `maxProductsPerStore` | `integer` | Max products per store (`0` = all) | `1000` |
-| `productType` | `string` | Keep only this product type (exact, case-insensitive) | `""` (all) |
-| `proxyConfiguration` | `object` | Proxy (residential helps for protected stores) | Apify Proxy |
-
-### Example input
+Use this one-product sample to verify output at low cost:
 
 ```json
 {
-  "storeUrls": ["allbirds.com", "https://www.mvmt.com"],
-  "maxProductsPerStore": 500,
-  "proxyConfiguration": { "useApifyProxy": true }
+  "storeUrls": ["allbirds.com"],
+  "maxProductsPerStore": 1,
+  "productType": "",
+  "proxyConfiguration": {
+    "useApifyProxy": false
+  }
 }
 ```
 
-## Sample output
+Most Shopify stores expose `products.json` openly, so the default proxy setting is off. If a store blocks direct access, enable Apify Proxy and try a Residential proxy group.
+
+## What It Extracts
+
+- Source, store/domain query, result position, and product ID
+- Product title, brand/vendor, and product type
+- Lowest variant price, compare-at/MRP, discount percentage, and currency placeholder
+- First non-default variant title in `packSize`
+- Stock status from variant availability
+- Product URL, image URL, and ISO scrape timestamp
+
+## Use Cases
+
+- Monitor competitor Shopify prices, MRP, discounts, and stock status
+- Build catalog snapshots from one or more Shopify storefronts
+- Compare product assortment, categories, brands, and price ranges
+- Feed product rows into CSV, Excel, dashboards, or price-change reports
+- Schedule repeat runs and diff public product catalogs over time
+
+## Pricing And Cost Control
+
+This Actor uses Apify Pay Per Event pricing. As of the latest live check, active pricing is:
+
+| Event | Price |
+| --- | ---: |
+| `product-scraped` | `$0.0015` per saved product |
+| `apify-actor-start` | `$0.00005` per GB start event |
+
+Products are charged only when a clean row is saved to the dataset. The Actor pushes and charges each product atomically, then stops before further requests when the run's maximum charge is reached.
+
+Platform usage such as compute and proxy traffic may also apply depending on your Apify plan and run configuration. The default run uses 512 MB and proxy off to keep simple Shopify storefront tests light.
+
+Cost-control tips:
+
+- Start with one store and `maxProductsPerStore: 1`.
+- Increase the product limit only after the first run confirms the output fits your use case.
+- Use `productType` when you only need one store category.
+- Keep proxy off for open stores; enable Residential proxy only for protected stores.
+- Use the run's maximum cost setting if you want a strict spending cap.
+
+## Input Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `storeUrls` | string[] | One to five Shopify domains or URLs, for example `allbirds.com` |
+| `maxProductsPerStore` | integer | Maximum products saved per store, up to 1000 |
+| `productType` | string | Optional exact product type filter, case-insensitive |
+| `proxyConfiguration` | object | Optional Apify Proxy settings. Default is proxy off |
+
+## Sample Output
 
 ```json
 {
-  "productId": 7369944137808,
+  "source": "shopify",
+  "searchQuery": "allbirds.com",
+  "position": 1,
+  "productId": "7369944137808",
   "title": "Tree Runner - Natural White",
-  "handle": "tree-runner-natural-white",
-  "description": "Our lightweight, breathable everyday sneaker...",
-  "vendor": "Allbirds",
-  "productType": "Shoes",
-  "tags": ["mens", "sneakers"],
-  "storeDomain": "allbirds.com",
+  "brand": "Allbirds",
+  "price": 98,
+  "mrp": 120,
+  "discountPercent": 18,
+  "currency": "N/A",
+  "packSize": "US 8",
+  "category": "Shoes",
+  "rating": null,
+  "ratingCount": null,
+  "inStock": true,
   "productUrl": "https://allbirds.com/products/tree-runner-natural-white",
-  "minPrice": 98,
-  "maxPrice": 98,
-  "available": true,
-  "variantsCount": 12,
-  "variants": [
-    { "variantId": 42436493115472, "title": "US 8", "sku": "TR-NW-8", "price": 98, "compareAtPrice": null, "available": true, "requiresShipping": true, "grams": 300 }
-  ],
-  "imageUrl": "https://cdn.shopify.com/s/files/.../tree-runner.png",
-  "images": ["https://cdn.shopify.com/s/files/.../tree-runner.png"],
-  "options": [{ "name": "Size", "values": ["US 8", "US 9", "US 10"] }],
-  "createdAt": "2026-06-05T07:14:57-07:00",
-  "updatedAt": "2026-06-10T13:31:29-07:00",
-  "publishedAt": "2026-06-05T07:23:55-07:00",
+  "imageUrl": "https://cdn.shopify.com/s/files/example/tree-runner.png",
   "scrapedAt": "2026-06-11T10:00:00.000Z"
 }
 ```
 
-## Pricing
+## Reliability Notes
 
-This Actor uses **pay-per-result** pricing:
-
-| Event | Price |
-|-------|-------|
-| Per product scraped | **$0.0015** ($1.50 / 1,000 products) |
-
-You are only charged for products actually extracted. Apify platform usage and proxy traffic are billed separately by Apify.
-
-## Use cases
-
-- **Competitor price monitoring** - track rival catalogs, prices, and stock
-- **Dropshipping / product research** - find products, vendors, and pricing
-- **E-commerce analytics** - analyze assortments, tags, and variant structures
-- **Lead generation** - build datasets of products across many stores
-- **Price-change alerts** - run on a schedule and diff results
-
-## How to Scrape Shopify Store Products (Step by Step)
-
-1. Click **Try for free** / **Run**.
-2. Enter one or more Shopify store domains in `storeUrls` (e.g. `allbirds.com`).
-3. Set `maxProductsPerStore` (start small to test, or `0` for the entire catalog).
-4. Optionally filter by `productType`, then click **Run**.
-5. When the run finishes, export results to JSON, CSV, Excel, or HTML, or pull them via the Apify API.
-
-## Notes & tips
-
-- Most Shopify stores serve `products.json` openly. A minority add bot protection - enable **residential proxies** for those, or they'll be skipped gracefully.
-- The actor reads the public `products.json` endpoint, so it returns published catalog data (not hidden/draft products).
-- Set `maxProductsPerStore: 0` to scrape an entire catalog.
+- The Actor reads public `/products.json` data. It does not access hidden, draft, admin-only, customer, order, or inventory-management data.
+- Some stores disable or protect `products.json`; those stores may fail unless you use a proxy or may not be accessible.
+- Shopify catalogs can expose different fields by theme/app setup. Missing values are saved as `null` or `N/A`.
+- The Actor fails zero-product runs instead of silently reporting success with no saved products.
 
 ## Responsible Use
 
-This Actor is intended for lawful collection of publicly available information only. Users are responsible for ensuring their use complies with the source website's terms, robots.txt, applicable privacy laws, including India's DPDP Act, and all local regulations.
-
-Do not use this Actor to collect, store, sell, or misuse personal data without a lawful basis. The Actor author is not responsible for misuse by end users.
+This Actor is not affiliated with, endorsed by, or sponsored by Shopify or any scraped store. Use it only for lawful purposes and in compliance with applicable website terms, privacy laws, and local regulations. Do not use it to collect private customer data, order data, admin data, seller contact lists, or non-public information.
 
 ## License
 
-Apache-2.0
+Apache License 2.0.

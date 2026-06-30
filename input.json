@@ -1,0 +1,8 @@
+{
+  "storeUrls": ["allbirds.com"],
+  "maxProductsPerStore": 1,
+  "productType": "",
+  "proxyConfiguration": {
+    "useApifyProxy": false
+  }
+}

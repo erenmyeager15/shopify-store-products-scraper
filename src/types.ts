@@ -2,11 +2,19 @@ export interface ActorInput {
     storeUrls?: string[];
     maxProductsPerStore?: number;
     productType?: string;
-    proxyConfiguration?: {
-        useApifyProxy?: boolean;
-        apifyProxyGroups?: string[];
-        proxyUrls?: string[];
-    };
+    proxyConfiguration?: ProxyInput;
+}
+
+export interface ProxyInput {
+    useApifyProxy?: boolean;
+    apifyProxyGroups?: string[];
+    apifyProxyCountry?: string;
+    proxyUrls?: string[];
+}
+
+export interface RunStats {
+    savedProducts: number;
+    failedRequests: number;
 }
 
 export interface VariantRecord {
@@ -21,26 +29,22 @@ export interface VariantRecord {
 }
 
 export interface ProductRecord {
-    productId: number | null;
-    title: string | null;
-    handle: string | null;
-    description: string | null;
-    vendor: string | null;
-    productType: string | null;
-    tags: string[];
-    storeDomain: string;
-    productUrl: string;
-    minPrice: number | null;
-    maxPrice: number | null;
-    currency: string | null;
-    available: boolean;
-    variantsCount: number;
-    variants: VariantRecord[];
+    source: 'shopify';
+    searchQuery: string;
+    position: number;
+    productId: string | null;
+    title: string;
+    brand: string;
+    price: number | null;
+    mrp: number | null;
+    discountPercent: number | null;
+    currency: string;
+    packSize: string;
+    category: string;
+    rating: number | null;
+    ratingCount: number | null;
+    inStock: boolean | null;
+    productUrl: string | null;
     imageUrl: string | null;
-    images: string[];
-    options: { name: string | null; values: string[] }[];
-    createdAt: string | null;
-    updatedAt: string | null;
-    publishedAt: string | null;
     scrapedAt: string;
 }

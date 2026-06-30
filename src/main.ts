@@ -1,17 +1,14 @@
 import { Actor, log } from 'apify';
 import { HttpCrawler } from 'crawlee';
-import type { ActorInput } from './types.js';
+import { normalizeInput } from './input.js';
+import type { ActorInput, RunStats } from './types.js';
 import { buildRouter } from './routes.js';
 
 await Actor.init();
 
 const input = ((await Actor.getInput<ActorInput>()) ?? {}) as ActorInput;
-const {
-    storeUrls = [],
-    maxProductsPerStore = 1000,
-    productType = '',
-    proxyConfiguration: proxyInput,
-} = input;
+const normalizedInput = normalizeInput(input);
+const { storeUrls, maxProductsPerStore, productType, proxyConfiguration: proxyInput } = normalizedInput;
 
 /** Extract the store origin (https://host) from a domain, URL, or messy input. */
 function toOrigin(raw: string): string | null {
@@ -29,13 +26,19 @@ function toOrigin(raw: string): string | null {
 const origins = [...new Set(storeUrls.map(toOrigin).filter((x): x is string => !!x))];
 
 if (origins.length === 0) {
-    log.error('No valid store URLs provided. Add at least one Shopify store domain, e.g. "allbirds.com".');
-    await Actor.exit();
+    throw new Error('No valid store URLs provided. Add at least one Shopify store domain, e.g. "allbirds.com".');
 }
 
 log.info(`Starting Shopify scrape for ${origins.length} store(s).`);
 
-const proxyConfiguration = await Actor.createProxyConfiguration(proxyInput ?? { useApifyProxy: true });
+const proxyConfiguration = proxyInput && (proxyInput.useApifyProxy || proxyInput.proxyUrls?.length)
+    ? await Actor.createProxyConfiguration(proxyInput as never)
+    : undefined;
+
+const stats: RunStats = {
+    savedProducts: 0,
+    failedRequests: 0,
+};
 
 const startRequests = origins.map((origin) => ({
     url: `${origin}/products.json?limit=250&page=1`,
@@ -43,8 +46,9 @@ const startRequests = origins.map((origin) => ({
 }));
 
 const router = buildRouter({
-    maxProductsPerStore: maxProductsPerStore && maxProductsPerStore > 0 ? maxProductsPerStore : Number.POSITIVE_INFINITY,
+    maxProductsPerStore,
     productType: productType.trim().toLowerCase(),
+    stats,
 });
 
 const crawler = new HttpCrawler({
@@ -57,10 +61,15 @@ const crawler = new HttpCrawler({
     retryOnBlocked: true,
     sessionPoolOptions: { maxPoolSize: 50, sessionOptions: { maxUsageCount: 30 } },
     failedRequestHandler: async ({ request }, error) => {
+        stats.failedRequests += 1;
         log.warning(`Failed: ${request.url} - ${(error as Error)?.message ?? error}`);
     },
 });
 
 await crawler.run(startRequests);
+if (stats.savedProducts === 0) {
+    throw new Error(`Shopify scrape finished with no saved products. Failed requests: ${stats.failedRequests}.`);
+}
+await Actor.setStatusMessage(`Finished with ${stats.savedProducts} Shopify products`);
 log.info('Shopify scrape finished.');
 await Actor.exit();

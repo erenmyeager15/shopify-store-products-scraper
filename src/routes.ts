@@ -1,10 +1,11 @@
 import { Actor, log } from 'apify';
 import type { HttpCrawlingContext } from 'crawlee';
-import type { ProductRecord, VariantRecord } from './types.js';
+import type { ProductRecord, RunStats, VariantRecord } from './types.js';
 
 interface RouterOpts {
     maxProductsPerStore: number;
     productType: string;
+    stats: RunStats;
 }
 
 const toNum = (v: unknown): number | null => {
@@ -28,6 +29,25 @@ const stripHtml = (html: unknown): string | null => {
         .trim() || null;
 };
 
+const textOrNA = (value: unknown): string => {
+    const text = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+    return text || 'N/A';
+};
+
+const normalizeUrl = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'Proxied content') return null;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    if (trimmed.startsWith('http://')) return `https://${trimmed.slice('http://'.length)}`;
+    return trimmed;
+};
+
+const discountPercent = (price: number | null, mrp: number | null): number | null => {
+    if (price === null || mrp === null || mrp <= price || mrp <= 0) return null;
+    return Math.round(((mrp - price) / mrp) * 100);
+};
+
 function parseBody(ctx: HttpCrawlingContext): any {
     const anyCtx = ctx as any;
     if (anyCtx.json !== undefined && anyCtx.json !== null) return anyCtx.json;
@@ -39,7 +59,7 @@ function parseBody(ctx: HttpCrawlingContext): any {
     return JSON.parse(t);
 }
 
-function mapProduct(p: any, origin: string, storeDomain: string): ProductRecord {
+export function mapProduct(p: any, origin: string, storeDomain: string, position: number): ProductRecord {
     const variants: VariantRecord[] = Array.isArray(p.variants)
         ? p.variants.map((v: any) => ({
               variantId: toNum(v.id),
@@ -54,44 +74,46 @@ function mapProduct(p: any, origin: string, storeDomain: string): ProductRecord 
         : [];
 
     const prices = variants.map((v) => v.price).filter((x): x is number => x != null);
+    const comparePrices = variants.map((v) => v.compareAtPrice).filter((x): x is number => x != null);
     const images: string[] = Array.isArray(p.images)
         ? p.images.map((img: any) => img?.src).filter((s: any) => typeof s === 'string')
         : [];
-    const options = Array.isArray(p.options)
-        ? p.options.map((o: any) => ({ name: o?.name ?? null, values: Array.isArray(o?.values) ? o.values : [] }))
-        : [];
+    const firstVariantTitle = variants.find((variant) => variant.title && variant.title !== 'Default Title')?.title;
+    const price = prices.length ? Math.min(...prices) : null;
+    const mrp = comparePrices.length ? Math.min(...comparePrices) : null;
 
     return {
-        productId: toNum(p.id),
-        title: p.title ?? null,
-        handle: p.handle ?? null,
-        description: stripHtml(p.body_html),
-        vendor: p.vendor ?? null,
-        productType: p.product_type ?? null,
-        tags: Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? p.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : []),
-        storeDomain,
-        productUrl: p.handle ? `${origin}/products/${p.handle}` : origin,
-        minPrice: prices.length ? Math.min(...prices) : null,
-        maxPrice: prices.length ? Math.max(...prices) : null,
-        currency: null,
-        available: variants.some((v) => v.available),
-        variantsCount: variants.length,
-        variants,
-        imageUrl: images[0] ?? null,
-        images,
-        options,
-        createdAt: p.created_at ?? null,
-        updatedAt: p.updated_at ?? null,
-        publishedAt: p.published_at ?? null,
+        source: 'shopify',
+        searchQuery: textOrNA(storeDomain),
+        position,
+        productId: p.id === null || p.id === undefined ? null : String(p.id),
+        title: textOrNA(p.title),
+        brand: textOrNA(p.vendor),
+        price,
+        mrp,
+        discountPercent: discountPercent(price, mrp),
+        currency: 'N/A',
+        packSize: textOrNA(firstVariantTitle),
+        category: textOrNA(p.product_type),
+        rating: null,
+        ratingCount: null,
+        inStock: variants.length ? variants.some((v) => v.available) : null,
+        productUrl: normalizeUrl(p.handle ? `${origin}/products/${p.handle}` : origin),
+        imageUrl: normalizeUrl(images[0]),
         scrapedAt: new Date().toISOString(),
     };
 }
 
 export function buildRouter(opts: RouterOpts) {
-    const { maxProductsPerStore, productType } = opts;
+    const { maxProductsPerStore, productType, stats } = opts;
+    let spendingLimitReached = false;
+    let chargedProductCount = 0;
 
     return async (ctx: HttpCrawlingContext): Promise<void> => {
         const { request, crawler } = ctx;
+
+        if (spendingLimitReached) return;
+
         const { storeDomain, origin, page, collected } = request.userData as {
             storeDomain: string;
             origin: string;
@@ -109,20 +131,42 @@ export function buildRouter(opts: RouterOpts) {
 
         let count = collected;
         let pushedThisPage = 0;
+        let skippedInvalidThisPage = 0;
+
         for (const p of products) {
-            if (count >= maxProductsPerStore) break;
+            if (count >= maxProductsPerStore || spendingLimitReached) break;
             if (productType && String(p.product_type ?? '').toLowerCase() !== productType) continue;
 
-            await Actor.pushData(mapProduct(p, origin, storeDomain));
-            await Actor.charge({ eventName: 'product-scraped' }).catch(() => null);
-            count++;
-            pushedThisPage++;
+            const record = mapProduct(p, origin, storeDomain, count + 1);
+            if (record.productId == null || record.title === 'N/A') {
+                skippedInvalidThisPage += 1;
+                continue;
+            }
+
+            const chargeResult = await Actor.pushData(record, 'product-scraped');
+            const recordWasSaved = chargeResult.chargedCount > 0 || !chargeResult.eventChargeLimitReached;
+            if (recordWasSaved) {
+                count += 1;
+                pushedThisPage += 1;
+                chargedProductCount += 1;
+                stats.savedProducts += 1;
+            }
+
+            if (chargeResult.eventChargeLimitReached) {
+                spendingLimitReached = true;
+                await Actor.setStatusMessage(`Stopped at the user's spending limit after ${chargedProductCount} products`);
+                log.warning('User spending limit reached; stopping before more Shopify requests.');
+                await crawler.autoscaledPool?.abort();
+                break;
+            }
         }
 
-        log.info(`${storeDomain}: pushed ${pushedThisPage} products (total ${count}/${maxProductsPerStore}) [page ${page}]`);
+        log.info(`${storeDomain}: pushed ${pushedThisPage} products (total ${count}/${maxProductsPerStore}) [page ${page}]`, {
+            skippedInvalidThisPage,
+        });
 
         // Paginate while the page was full and we're under the cap.
-        if (count < maxProductsPerStore && products.length >= 250) {
+        if (!spendingLimitReached && count < maxProductsPerStore && products.length >= 250) {
             const nextPage = page + 1;
             await crawler.addRequests([
                 {
