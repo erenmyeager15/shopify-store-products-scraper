@@ -2,6 +2,7 @@ export interface ActorInput {
     storeUrls?: string[];
     maxProductsPerStore?: number;
     productType?: string;
+    confirmAuthorizedUse?: boolean;
     proxyConfiguration?: ProxyInput;
 }
 
@@ -15,6 +16,7 @@ export interface ProxyInput {
 export interface RunStats {
     savedProducts: number;
     failedRequests: number;
+    skippedRequests: number;
 }
 
 export interface VariantRecord {

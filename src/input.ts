@@ -1,9 +1,11 @@
 import type { ActorInput, ProxyInput } from './types.js';
+import { OFFICIAL_DEMO_HOST } from './url-safety.js';
 
 export interface NormalizedInput {
     storeUrls: string[];
     maxProductsPerStore: number;
     productType: string;
+    confirmAuthorizedUse: boolean;
     proxyConfiguration?: ProxyInput;
 }
 
@@ -45,6 +47,12 @@ function asString(value: unknown, fieldName: string, defaultValue: string): stri
     return value.trim();
 }
 
+function asBoolean(value: unknown, fieldName: string, defaultValue: boolean): boolean {
+    if (value === undefined || value === null || value === '') return defaultValue;
+    if (typeof value !== 'boolean') fail('must be true or false.', fieldName);
+    return value;
+}
+
 function asProxyConfiguration(value: unknown): ProxyInput | undefined {
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'object' || Array.isArray(value)) fail('must be a proxy configuration object.', 'proxyConfiguration');
@@ -55,9 +63,10 @@ export function normalizeInput(raw: ActorInput = {}): NormalizedInput {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Input must be a JSON object.');
 
     return {
-        storeUrls: asStringArray(raw.storeUrls, 'storeUrls', ['allbirds.com'], 1, 5),
+        storeUrls: asStringArray(raw.storeUrls, 'storeUrls', [OFFICIAL_DEMO_HOST], 1, 5),
         maxProductsPerStore: asIntInRange(raw.maxProductsPerStore, 'maxProductsPerStore', DEFAULT_MAX_PRODUCTS_PER_STORE, 1, MAX_PRODUCTS_PER_STORE),
         productType: asString(raw.productType, 'productType', ''),
+        confirmAuthorizedUse: asBoolean(raw.confirmAuthorizedUse, 'confirmAuthorizedUse', false),
         proxyConfiguration: asProxyConfiguration(raw.proxyConfiguration),
     };
 }

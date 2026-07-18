@@ -1,5 +1,5 @@
 import { Actor, log } from 'apify';
-import type { HttpCrawlingContext } from 'crawlee';
+import type { HttpCrawlingContext } from '@crawlee/http';
 import type { ProductRecord, RunStats, VariantRecord } from './types.js';
 
 interface RouterOpts {
@@ -7,6 +7,9 @@ interface RouterOpts {
     productType: string;
     stats: RunStats;
 }
+
+const MAX_RESPONSE_BYTES = 15 * 1024 * 1024;
+const MAX_PRODUCTS_PER_PAGE = 250;
 
 const toNum = (v: unknown): number | null => {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -49,14 +52,25 @@ const discountPercent = (price: number | null, mrp: number | null): number | nul
 };
 
 function parseBody(ctx: HttpCrawlingContext): any {
+    const raw = ctx.body?.toString?.() ?? '';
+    if (Buffer.byteLength(raw, 'utf8') > MAX_RESPONSE_BYTES) {
+        throw new Error(`Shopify response exceeded the ${MAX_RESPONSE_BYTES} byte safety limit.`);
+    }
+
     const anyCtx = ctx as any;
     if (anyCtx.json !== undefined && anyCtx.json !== null) return anyCtx.json;
-    const raw = ctx.body?.toString?.() ?? '';
     const t = raw.trim();
     if (!t.startsWith('{') && !t.startsWith('[')) {
         throw new Error('Non-JSON response (store blocked or not a Shopify store). Rotating session.');
     }
     return JSON.parse(t);
+}
+
+export function isBillableProductRecord(record: ProductRecord): boolean {
+    return record.productId !== null
+        && record.title !== 'N/A'
+        && record.price !== null
+        && record.productUrl !== null;
 }
 
 export function mapProduct(p: any, origin: string, storeDomain: string, position: number): ProductRecord {
@@ -122,7 +136,14 @@ export function buildRouter(opts: RouterOpts) {
         };
 
         const data = parseBody(ctx);
-        const products: any[] = Array.isArray(data?.products) ? data.products : [];
+        if (!data || typeof data !== 'object' || !Array.isArray(data.products)) {
+            throw new Error('Response is not a Shopify products payload.');
+        }
+
+        const products: any[] = data.products;
+        if (products.length > MAX_PRODUCTS_PER_PAGE) {
+            throw new Error(`Shopify response contained more than ${MAX_PRODUCTS_PER_PAGE} products.`);
+        }
 
         if (products.length === 0) {
             log.info(`${storeDomain}: no more products (page ${page}). Total ${collected}.`);
@@ -138,7 +159,7 @@ export function buildRouter(opts: RouterOpts) {
             if (productType && String(p.product_type ?? '').toLowerCase() !== productType) continue;
 
             const record = mapProduct(p, origin, storeDomain, count + 1);
-            if (record.productId == null || record.title === 'N/A') {
+            if (!isBillableProductRecord(record)) {
                 skippedInvalidThisPage += 1;
                 continue;
             }

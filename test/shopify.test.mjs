@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeInput } from '../dist/input.js';
-import { mapProduct } from '../dist/routes.js';
+import { isBillableProductRecord, mapProduct } from '../dist/routes.js';
+import {
+    assertAuthorizedUse,
+    assertPublicNetworkTarget,
+    normalizeStoreOrigin,
+} from '../dist/url-safety.js';
 
 const shopifyProduct = {
     id: 7369944137808,
@@ -37,12 +42,13 @@ const shopifyProduct = {
     ],
 };
 
-test('normalizes default input to one low-cost Allbirds run', () => {
+test('normalizes default input to Shopify official demo', () => {
     const input = normalizeInput({});
 
-    assert.deepEqual(input.storeUrls, ['allbirds.com']);
+    assert.deepEqual(input.storeUrls, ['fakestore-ai.myshopify.com']);
     assert.equal(input.maxProductsPerStore, 1);
     assert.equal(input.productType, '');
+    assert.equal(input.confirmAuthorizedUse, false);
     assert.equal(input.proxyConfiguration, undefined);
 });
 
@@ -58,6 +64,39 @@ test('rejects oversized or invalid input values', () => {
     assert.throws(
         () => normalizeInput({ storeUrls: ['allbirds.com'], proxyConfiguration: [] }),
         /proxyConfiguration/,
+    );
+    assert.throws(
+        () => normalizeInput({ confirmAuthorizedUse: 'yes' }),
+        /confirmAuthorizedUse/,
+    );
+});
+
+test('requires explicit authorization for real stores but not the official demo', () => {
+    assert.doesNotThrow(() => assertAuthorizedUse(['https://fakestore-ai.myshopify.com'], false));
+    assert.throws(
+        () => assertAuthorizedUse(['https://example.myshopify.com'], false),
+        /Confirm authorized use/,
+    );
+    assert.doesNotThrow(() => assertAuthorizedUse(['https://example.myshopify.com'], true));
+});
+
+test('accepts HTTPS public hosts and rejects unsafe URL forms', async () => {
+    assert.equal(normalizeStoreOrigin('Example.COM/catalog'), 'https://example.com');
+    assert.throws(() => normalizeStoreOrigin('http://example.com'), /HTTPS/);
+    assert.throws(() => normalizeStoreOrigin('https://user:pass@example.com'), /credentials/);
+    assert.throws(() => normalizeStoreOrigin('https://example.com:8443'), /custom port/);
+    assert.throws(() => normalizeStoreOrigin('https://127.0.0.1'), /non-public/);
+
+    await assert.doesNotReject(() => assertPublicNetworkTarget(
+        'https://example.com',
+        async () => [{ address: '93.184.216.34', family: 4 }],
+    ));
+    await assert.rejects(
+        () => assertPublicNetworkTarget(
+            'https://example.com',
+            async () => [{ address: '169.254.169.254', family: 4 }],
+        ),
+        /non-public/,
     );
 });
 
@@ -81,4 +120,11 @@ test('maps Shopify products into the public dataset shape', () => {
     assert.equal(product.inStock, true);
     assert.equal(product.productUrl, 'https://allbirds.com/products/tree-runner-natural-white');
     assert.equal(product.imageUrl, 'https://cdn.shopify.com/s/files/example/tree-runner.png');
+    assert.equal(isBillableProductRecord(product), true);
+});
+
+test('does not treat incomplete product rows as billable output', () => {
+    const product = mapProduct({ id: 1, title: 'Incomplete', handle: 'incomplete' }, 'https://example.com', 'example.com', 1);
+    assert.equal(product.price, null);
+    assert.equal(isBillableProductRecord(product), false);
 });

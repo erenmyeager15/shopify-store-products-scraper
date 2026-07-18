@@ -1,18 +1,18 @@
 {
   "title": "Shopify Store Products Scraper",
-  "description": "Provide one or more Shopify store domains or URLs to extract public product catalog data. The default input saves one Allbirds product for a low-cost first run.",
+  "description": "Extract public product catalog data from Shopify storefronts you own, administer, or have permission to monitor. The default uses Shopify's official Mock.Shop demo.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
     "storeUrls": {
       "title": "Shopify Store URLs / Domains",
-      "description": "List of Shopify store domains or URLs, e.g. \"allbirds.com\" or \"https://www.allbirds.com\".",
+      "description": "List of Shopify storefront domains or HTTPS URLs. The default is Shopify's official Mock.Shop demo.",
       "type": "array",
       "editor": "stringList",
       "minItems": 1,
       "maxItems": 5,
-      "prefill": ["allbirds.com"],
-      "default": ["allbirds.com"]
+      "prefill": ["fakestore-ai.myshopify.com"],
+      "default": ["fakestore-ai.myshopify.com"]
     },
     "maxProductsPerStore": {
       "title": "Max Products Per Store",
@@ -31,9 +31,17 @@
       "editor": "textfield",
       "default": ""
     },
+    "confirmAuthorizedUse": {
+      "title": "I am authorized to monitor these stores",
+      "description": "Required for any real store. Confirm that you own, administer, or have permission to monitor each supplied storefront. Not required for the official demo.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": false,
+      "prefill": false
+    },
     "proxyConfiguration": {
       "title": "Proxy Configuration",
-      "description": "Most Shopify stores serve products.json openly. Leave proxy off for the cheapest first run; enable Residential proxy only for protected stores.",
+      "description": "Leave proxy off for the official demo and normal public storefront access. A proxy does not override store permissions, robots.txt, or access restrictions.",
       "type": "object",
       "editor": "proxy",
       "default": { "useApifyProxy": false },

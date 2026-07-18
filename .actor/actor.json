@@ -2,7 +2,7 @@
   "actorSpecification": 1,
   "name": "shopify-store-products-scraper",
   "title": "Shopify Product Scraper: Catalog & Prices",
-  "description": "Scrape public Shopify product catalog rows from store domains, including titles, brands, prices, MRP, product types, stock status, images, and URLs. No login or API key needed.",
+  "description": "Extract public Shopify catalog rows from authorized storefronts, including titles, brands, prices, MRP, product types, stock status, images, and URLs. Includes a safe official Mock.Shop demo.",
   "version": "1.0",
   "buildTag": "latest",
   "categories": ["ECOMMERCE", "AUTOMATION"],
@@ -11,7 +11,7 @@
   "input": "../INPUT_SCHEMA.json",
   "readme": "../README.md",
   "exampleRunInput": {
-    "body": "{\"storeUrls\":[\"allbirds.com\"],\"maxProductsPerStore\":1,\"productType\":\"\",\"proxyConfiguration\":{\"useApifyProxy\":false}}",
+    "body": "{\"storeUrls\":[\"fakestore-ai.myshopify.com\"],\"maxProductsPerStore\":1,\"productType\":\"\",\"confirmAuthorizedUse\":false,\"proxyConfiguration\":{\"useApifyProxy\":false}}",
     "contentType": "application/json; charset=utf-8"
   },
   "output": "./output_schema.json",

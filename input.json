@@ -1,7 +1,8 @@
 {
-  "storeUrls": ["allbirds.com"],
+  "storeUrls": ["fakestore-ai.myshopify.com"],
   "maxProductsPerStore": 1,
   "productType": "",
+  "confirmAuthorizedUse": false,
   "proxyConfiguration": {
     "useApifyProxy": false
   }
