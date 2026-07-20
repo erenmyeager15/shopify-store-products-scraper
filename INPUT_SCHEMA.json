@@ -11,8 +11,8 @@
       "editor": "stringList",
       "minItems": 1,
       "maxItems": 5,
-      "prefill": ["fakestore-ai.myshopify.com"],
-      "default": ["fakestore-ai.myshopify.com"]
+      "prefill": ["demostore.mock.shop"],
+      "default": ["demostore.mock.shop"]
     },
     "maxProductsPerStore": {
       "title": "Max Products Per Store",

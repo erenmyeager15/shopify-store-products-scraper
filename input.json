@@ -1,5 +1,5 @@
 {
-  "storeUrls": ["fakestore-ai.myshopify.com"],
+  "storeUrls": ["demostore.mock.shop"],
   "maxProductsPerStore": 1,
   "productType": "",
   "confirmAuthorizedUse": false,

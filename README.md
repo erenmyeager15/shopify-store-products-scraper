@@ -10,7 +10,7 @@ Use Shopify's official Mock.Shop demo to verify output at low cost:
 
 ```json
 {
-  "storeUrls": ["fakestore-ai.myshopify.com"],
+  "storeUrls": ["demostore.mock.shop"],
   "maxProductsPerStore": 1,
   "productType": "",
   "confirmAuthorizedUse": false,
@@ -75,7 +75,7 @@ Cost-control tips:
 ```json
 {
   "source": "shopify",
-  "searchQuery": "fakestore-ai.myshopify.com",
+  "searchQuery": "demostore.mock.shop",
   "position": 1,
   "productId": "10489561382934",
   "title": "Hoodie",
@@ -89,7 +89,7 @@ Cost-control tips:
   "rating": null,
   "ratingCount": null,
   "inStock": true,
-  "productUrl": "https://fakestore-ai.myshopify.com/products/hoodie",
+  "productUrl": "https://demostore.mock.shop/products/hoodie",
   "imageUrl": "https://cdn.shopify.com/s/files/1/0688/1755/1382/products/ClayHoodie01.jpg",
   "scrapedAt": "2026-07-18T13:32:29.858Z"
 }

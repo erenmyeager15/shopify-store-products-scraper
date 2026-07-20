@@ -45,7 +45,7 @@ const shopifyProduct = {
 test('normalizes default input to Shopify official demo', () => {
     const input = normalizeInput({});
 
-    assert.deepEqual(input.storeUrls, ['fakestore-ai.myshopify.com']);
+    assert.deepEqual(input.storeUrls, ['demostore.mock.shop']);
     assert.equal(input.maxProductsPerStore, 1);
     assert.equal(input.productType, '');
     assert.equal(input.confirmAuthorizedUse, false);
@@ -72,7 +72,7 @@ test('rejects oversized or invalid input values', () => {
 });
 
 test('requires explicit authorization for real stores but not the official demo', () => {
-    assert.doesNotThrow(() => assertAuthorizedUse(['https://fakestore-ai.myshopify.com'], false));
+    assert.doesNotThrow(() => assertAuthorizedUse(['https://demostore.mock.shop'], false));
     assert.throws(
         () => assertAuthorizedUse(['https://example.myshopify.com'], false),
         /Confirm authorized use/,

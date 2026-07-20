@@ -59,9 +59,9 @@ const crawler = new HttpCrawler({
     additionalMimeTypes: ['application/json'],
     maxConcurrency: 5,
     maxRequestsPerMinute: 60,
-    maxRequestRetries: 3,
-    requestHandlerTimeoutSecs: 60,
-    navigationTimeoutSecs: 45,
+    maxRequestRetries: 1,
+    requestHandlerTimeoutSecs: 45,
+    navigationTimeoutSecs: 30,
     retryOnBlocked: true,
     respectRobotsTxtFile: { userAgent: 'ApifyShopifyCatalogActor/1.0' },
     onSkippedRequest: async ({ url, reason }) => {

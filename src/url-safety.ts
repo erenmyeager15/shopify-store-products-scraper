@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import ipaddr from 'ipaddr.js';
 
-export const OFFICIAL_DEMO_HOST = 'fakestore-ai.myshopify.com';
+export const OFFICIAL_DEMO_HOST = 'demostore.mock.shop';
 
 export interface ResolvedAddress {
     address: string;
@@ -57,7 +57,8 @@ export function normalizeStoreOrigin(raw: string): string {
 }
 
 export function isOfficialDemoOrigin(origin: string): boolean {
-    return normalizedHostname(new URL(origin)) === OFFICIAL_DEMO_HOST;
+    const hostname = normalizedHostname(new URL(origin));
+    return hostname === OFFICIAL_DEMO_HOST || hostname === 'fakestore-ai.myshopify.com';
 }
 
 export function assertAuthorizedUse(origins: string[], confirmed: boolean): void {

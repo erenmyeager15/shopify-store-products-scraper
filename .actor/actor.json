@@ -11,7 +11,7 @@
   "input": "../INPUT_SCHEMA.json",
   "readme": "../README.md",
   "exampleRunInput": {
-    "body": "{\"storeUrls\":[\"fakestore-ai.myshopify.com\"],\"maxProductsPerStore\":1,\"productType\":\"\",\"confirmAuthorizedUse\":false,\"proxyConfiguration\":{\"useApifyProxy\":false}}",
+    "body": "{\"storeUrls\":[\"demostore.mock.shop\"],\"maxProductsPerStore\":1,\"productType\":\"\",\"confirmAuthorizedUse\":false,\"proxyConfiguration\":{\"useApifyProxy\":false}}",
     "contentType": "application/json; charset=utf-8"
   },
   "output": "./output_schema.json",
