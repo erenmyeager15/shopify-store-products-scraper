@@ -56,7 +56,7 @@ const router = buildRouter({
 const crawler = new HttpCrawler({
     proxyConfiguration,
     requestHandler: router,
-    additionalMimeTypes: ['application/json'],
+    additionalMimeTypes: ['application/json', 'text/plain'],
     maxConcurrency: 5,
     maxRequestsPerMinute: 60,
     maxRequestRetries: 1,
