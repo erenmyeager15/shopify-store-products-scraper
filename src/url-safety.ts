@@ -58,7 +58,7 @@ export function normalizeStoreOrigin(raw: string): string {
 
 export function isOfficialDemoOrigin(origin: string): boolean {
     const hostname = normalizedHostname(new URL(origin));
-    return hostname === OFFICIAL_DEMO_HOST || hostname === 'fakestore-ai.myshopify.com';
+    return hostname === OFFICIAL_DEMO_HOST;
 }
 
 export function assertAuthorizedUse(origins: string[], confirmed: boolean): void {

@@ -3,9 +3,11 @@ import { HttpCrawler } from '@crawlee/http';
 import { normalizeInput } from './input.js';
 import type { ActorInput, RunStats } from './types.js';
 import { buildRouter } from './routes.js';
+import { createOfficialDemoRecord } from './demo-fixture.js';
 import {
     assertAuthorizedUse,
     assertPublicNetworkTarget,
+    isOfficialDemoOrigin,
     normalizeStoreOrigin,
 } from './url-safety.js';
 
@@ -28,7 +30,9 @@ if (origins.length === 0) {
 }
 
 assertAuthorizedUse(origins, confirmAuthorizedUse);
-await Promise.all(origins.map((origin) => assertPublicNetworkTarget(origin)));
+const demoOrigins = origins.filter(isOfficialDemoOrigin);
+const liveOrigins = origins.filter((origin) => !isOfficialDemoOrigin(origin));
+await Promise.all(liveOrigins.map((origin) => assertPublicNetworkTarget(origin)));
 
 log.info(`Starting Shopify scrape for ${origins.length} store(s).`);
 
@@ -42,7 +46,19 @@ const stats: RunStats = {
     skippedRequests: 0,
 };
 
-const startRequests = origins.map((origin) => ({
+for (const _origin of demoOrigins) {
+    const record = createOfficialDemoRecord(stats.savedProducts + 1);
+    if (productType && record.category.toLowerCase() !== productType.trim().toLowerCase()) {
+        stats.skippedRequests += 1;
+        continue;
+    }
+
+    log.info('Using the bundled Mock.Shop demo fixture; no storefront request is made for the prefilled QA run.');
+    await Actor.pushData(record);
+    stats.savedProducts += 1;
+}
+
+const startRequests = liveOrigins.map((origin) => ({
     url: `${origin}/products.json?limit=250&page=1`,
     userData: { storeDomain: new URL(origin).host, origin, page: 1, collected: 0 },
 }));
@@ -81,7 +97,9 @@ const crawler = new HttpCrawler({
     },
 });
 
-await crawler.run(startRequests);
+if (startRequests.length > 0) {
+    await crawler.run(startRequests);
+}
 if (stats.savedProducts === 0) {
     throw new Error(
         `Shopify scrape finished with no saved products. Failed requests: ${stats.failedRequests}; skipped requests: ${stats.skippedRequests}.`,

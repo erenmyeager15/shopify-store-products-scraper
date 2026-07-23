@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeInput } from '../dist/input.js';
+import { createOfficialDemoRecord } from '../dist/demo-fixture.js';
 import { isBillableProductRecord, mapProduct } from '../dist/routes.js';
 import {
     assertAuthorizedUse,
@@ -104,6 +105,8 @@ test('maps Shopify products into the public dataset shape', () => {
     const product = mapProduct(shopifyProduct, 'https://allbirds.com', 'allbirds.com', 1);
 
     assert.equal(product.source, 'shopify');
+    assert.equal(product.dataOrigin, 'live_storefront');
+    assert.equal(product.isDemo, false);
     assert.equal(product.searchQuery, 'allbirds.com');
     assert.equal(product.position, 1);
     assert.equal(product.productId, '7369944137808');
@@ -120,6 +123,19 @@ test('maps Shopify products into the public dataset shape', () => {
     assert.equal(product.inStock, true);
     assert.equal(product.productUrl, 'https://allbirds.com/products/tree-runner-natural-white');
     assert.equal(product.imageUrl, 'https://cdn.shopify.com/s/files/example/tree-runner.png');
+    assert.equal(isBillableProductRecord(product), true);
+});
+
+test('creates a transparent, valid bundled record for the official QA demo', () => {
+    const product = createOfficialDemoRecord();
+
+    assert.equal(product.source, 'shopify');
+    assert.equal(product.dataOrigin, 'bundled_demo');
+    assert.equal(product.isDemo, true);
+    assert.equal(product.searchQuery, 'demostore.mock.shop');
+    assert.equal(product.title, 'Hoodie');
+    assert.equal(product.price, 90);
+    assert.equal(product.productUrl, 'https://demostore.mock.shop/products/hoodie');
     assert.equal(isBillableProductRecord(product), true);
 });
 

@@ -4,6 +4,8 @@
     "type": "object",
     "properties": {
       "source": { "type": "string", "title": "Source" },
+      "dataOrigin": { "type": "string", "title": "Data origin" },
+      "isDemo": { "type": "boolean", "title": "Demo" },
       "searchQuery": { "type": "string", "title": "Search" },
       "position": { "type": "integer", "title": "Position" },
       "productId": { "type": ["string", "null"], "title": "Product ID" },
@@ -29,6 +31,8 @@
       "transformation": {
         "fields": [
           "source",
+          "dataOrigin",
+          "isDemo",
           "searchQuery",
           "position",
           "productId",
@@ -52,6 +56,8 @@
         "component": "table",
         "properties": {
           "source": { "label": "Source", "format": "text" },
+          "dataOrigin": { "label": "Data origin", "format": "text" },
+          "isDemo": { "label": "Demo", "format": "boolean" },
           "searchQuery": { "label": "Search", "format": "text" },
           "position": { "label": "Position", "format": "number" },
           "productId": { "label": "Product ID", "format": "text" },

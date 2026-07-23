@@ -1,7 +1,7 @@
 {
   "actorOutputSchemaVersion": 1,
   "title": "Shopify Store Products Scraper Output",
-  "description": "Structured Shopify product catalog records with titles, brands, product types, prices, MRP, discounts, stock status, product URLs, image URLs, store domains, and scraped timestamps.",
+  "description": "Structured Shopify product catalog records with explicit live-storefront or bundled-demo origin, titles, brands, product types, prices, MRP, discounts, stock status, product URLs, image URLs, store domains, and scraped timestamps.",
   "type": "object",
   "properties": {
     "results": {

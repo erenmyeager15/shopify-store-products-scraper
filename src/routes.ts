@@ -73,7 +73,13 @@ export function isBillableProductRecord(record: ProductRecord): boolean {
         && record.productUrl !== null;
 }
 
-export function mapProduct(p: any, origin: string, storeDomain: string, position: number): ProductRecord {
+export function mapProduct(
+    p: any,
+    origin: string,
+    storeDomain: string,
+    position: number,
+    dataOrigin: ProductRecord['dataOrigin'] = 'live_storefront',
+): ProductRecord {
     const variants: VariantRecord[] = Array.isArray(p.variants)
         ? p.variants.map((v: any) => ({
               variantId: toNum(v.id),
@@ -98,6 +104,8 @@ export function mapProduct(p: any, origin: string, storeDomain: string, position
 
     return {
         source: 'shopify',
+        dataOrigin,
+        isDemo: dataOrigin === 'bundled_demo',
         searchQuery: textOrNA(storeDomain),
         position,
         productId: p.id === null || p.id === undefined ? null : String(p.id),

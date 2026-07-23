@@ -32,6 +32,8 @@ export interface VariantRecord {
 
 export interface ProductRecord {
     source: 'shopify';
+    dataOrigin: 'live_storefront' | 'bundled_demo';
+    isDemo: boolean;
     searchQuery: string;
     position: number;
     productId: string | null;

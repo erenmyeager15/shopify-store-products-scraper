@@ -1,8 +1,10 @@
 # Shopify Product Scraper: Catalog & Prices
 
-Extract public Shopify product catalog rows from storefronts you own, administer, or have permission to monitor. The Actor reads public Shopify `products.json` endpoints and saves clean product rows with titles, brands, prices, MRP, discounts, product types, stock status, image URLs, product URLs, and scrape timestamps.
+Extract public Shopify product catalog rows from storefronts you own, administer, or have permission to monitor. Real-store runs read public Shopify `products.json` endpoints and save clean product rows with titles, brands, prices, MRP, discounts, product types, stock status, image URLs, product URLs, and scrape timestamps.
 
 No Shopify login, Admin API token, or app install is required. Public availability is not permission by itself: real-store runs require an authorization confirmation, obey `robots.txt`, and stop when access is blocked.
+
+The prefilled `demostore.mock.shop` run uses a bundled, deterministic Mock.Shop demo record rather than contacting the rate-limited demo storefront. Demo output is explicitly marked with `dataOrigin: "bundled_demo"` and `isDemo: true`; it is only for testing the Actor interface and is not charged as a scraped-product event. Real storefront output is marked `dataOrigin: "live_storefront"` and `isDemo: false`.
 
 ## Quick Start
 
@@ -75,6 +77,8 @@ Cost-control tips:
 ```json
 {
   "source": "shopify",
+  "dataOrigin": "bundled_demo",
+  "isDemo": true,
   "searchQuery": "demostore.mock.shop",
   "position": 1,
   "productId": "10489561382934",
@@ -97,7 +101,8 @@ Cost-control tips:
 
 ## Reliability Notes
 
-- The Actor reads public `/products.json` data. It does not access hidden, draft, admin-only, customer, order, or inventory-management data.
+- Real-store runs read public `/products.json` data. The prefilled demo uses a clearly labeled bundled fixture and does not make a storefront request.
+- The Actor does not access hidden, draft, admin-only, customer, order, or inventory-management data.
 - The default test uses Shopify's publicly available Mock.Shop demo rather than a third-party merchant.
 - HTTPS, public-network validation, disabled redirects, response-size limits, and `robots.txt` checks reduce unsafe or accidental access.
 - Some stores disable or protect `products.json`; those stores are not accessible with this Actor.
