@@ -56,7 +56,7 @@ This Actor uses Apify Pay Per Event pricing. As of the latest live check, active
 
 Products are charged only when a clean row is saved to the dataset. The Actor pushes and charges each product atomically, then stops before further requests when the run's maximum charge is reached.
 
-Platform usage such as compute and proxy traffic may also apply depending on your Apify plan and run configuration. The default run uses 512 MB and proxy off to keep simple Shopify storefront tests light.
+The current pay-per-event price includes platform usage. The default run uses 256 MB with proxy off. Explicit proxy settings remain supported where the store owner has authorized that access.
 
 Cost-control tips:
 

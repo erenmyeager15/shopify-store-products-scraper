@@ -3,7 +3,7 @@
   "name": "shopify-store-products-scraper",
   "title": "Shopify Product Scraper: Catalog & Prices",
   "description": "Extract public Shopify catalog rows from authorized storefronts, including titles, brands, prices, MRP, product types, stock status, images, and URLs. Includes a safe official Mock.Shop demo.",
-  "version": "1.0",
+  "version": "1.1",
   "buildTag": "latest",
   "categories": ["ECOMMERCE", "AUTOMATION"],
   "categoriesVersion": "1.0.0",
@@ -41,7 +41,7 @@
   },
   "defaultRunOptions": {
     "build": "latest",
-    "memoryMbytes": 512,
+    "memoryMbytes": 256,
     "timeoutSecs": 900
   },
   "minMemoryMbytes": 256,
