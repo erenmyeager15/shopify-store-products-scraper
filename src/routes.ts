@@ -1,20 +1,24 @@
 import { Actor, log } from 'apify';
 import type { HttpCrawlingContext } from '@crawlee/http';
 import type { ProductRecord, RunStats, VariantRecord } from './types.js';
+import { pageSizeFor, pageUrl } from './request-plan.js';
 
 interface RouterOpts {
     maxProductsPerStore: number;
     productType: string;
     stats: RunStats;
+    pushData?: (record: ProductRecord, eventName: string) => Promise<{ chargedCount: number; eventChargeLimitReached: boolean }>;
+    setStatus?: (message: string) => Promise<unknown>;
 }
 
 const MAX_RESPONSE_BYTES = 15 * 1024 * 1024;
 const MAX_PRODUCTS_PER_PAGE = 250;
 
 const toNum = (v: unknown): number | null => {
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
     if (typeof v === 'string' && v.trim() !== '') {
-        const n = parseFloat(v);
+        if (!/^\d+(?:\.\d+)?$/.test(v.trim())) return null;
+        const n = Number(v);
         return Number.isFinite(n) ? n : null;
     }
     return null;
@@ -81,8 +85,8 @@ export function mapProduct(
     dataOrigin: ProductRecord['dataOrigin'] = 'live_storefront',
 ): ProductRecord {
     const variants: VariantRecord[] = Array.isArray(p.variants)
-        ? p.variants.map((v: any) => ({
-              variantId: toNum(v.id),
+        ? p.variants.filter((v: unknown) => v !== null && typeof v === 'object').map((v: any) => ({
+              variantId: Number.isSafeInteger(toNum(v.id)) ? toNum(v.id) : null,
               title: v.title ?? null,
               sku: v.sku ? String(v.sku) : null,
               price: toNum(v.price),
@@ -94,13 +98,14 @@ export function mapProduct(
         : [];
 
     const prices = variants.map((v) => v.price).filter((x): x is number => x != null);
-    const comparePrices = variants.map((v) => v.compareAtPrice).filter((x): x is number => x != null);
     const images: string[] = Array.isArray(p.images)
         ? p.images.map((img: any) => img?.src).filter((s: any) => typeof s === 'string')
         : [];
     const firstVariantTitle = variants.find((variant) => variant.title && variant.title !== 'Default Title')?.title;
     const price = prices.length ? Math.min(...prices) : null;
-    const mrp = comparePrices.length ? Math.min(...comparePrices) : null;
+    // A discount must compare the SAME variant, not two unrelated minima.
+    const mrp = price === null ? null : variants.find((v) => v.price === price)?.compareAtPrice ?? null;
+    const availability = variants.map((v) => v.available);
 
     return {
         source: 'shopify',
@@ -119,10 +124,16 @@ export function mapProduct(
         category: textOrNA(p.product_type),
         rating: null,
         ratingCount: null,
-        inStock: variants.length ? variants.some((v) => v.available) : null,
-        productUrl: normalizeUrl(p.handle ? `${origin}/products/${p.handle}` : origin),
+        inStock: availability.includes(true) ? true : availability.length && availability.length === p.variants.length && availability.every((v) => v === false) ? false : null,
+        productUrl: typeof p.handle === 'string' && /^[a-zA-Z0-9_-]+$/.test(p.handle) ? `${origin}/products/${p.handle}` : null,
         imageUrl: normalizeUrl(images[0]),
         scrapedAt: new Date().toISOString(),
+        variants,
+        priceMax: prices.length ? Math.max(...prices) : null,
+        images: [...new Set(images.map(normalizeUrl).filter((v): v is string => v !== null))],
+        description: stripHtml(p.body_html),
+        tags: (Array.isArray(p.tags) ? p.tags : typeof p.tags === 'string' ? p.tags.split(',') : [])
+            .filter((v: unknown): v is string => typeof v === 'string').map((v: string) => v.trim()).filter(Boolean),
     };
 }
 
@@ -130,40 +141,48 @@ export function buildRouter(opts: RouterOpts) {
     const { maxProductsPerStore, productType, stats } = opts;
     let spendingLimitReached = false;
     let chargedProductCount = 0;
+    const seen = new Set<string>();
+    const storeCounts = new Map<string, number>();
+    const pageSignatures = new Set<string>();
+    const storeLocks = new Map<string, Promise<void>>();
 
-    return async (ctx: HttpCrawlingContext): Promise<void> => {
+    const handle = async (ctx: HttpCrawlingContext): Promise<void> => {
         const { request, crawler } = ctx;
 
-        if (spendingLimitReached) return;
+        if (spendingLimitReached || stats.spendingLimitReached) return;
 
-        const { storeDomain, origin, page, collected } = request.userData as {
+        const { storeDomain, origin, page, collected, endpoint, single } = request.userData as {
             storeDomain: string;
             origin: string;
             page: number;
             collected: number;
+            endpoint: string;
+            single: boolean;
         };
 
         const data = parseBody(ctx);
-        if (!data || typeof data !== 'object' || !Array.isArray(data.products)) {
+        if (!data || typeof data !== 'object' || (single ? !data.product || typeof data.product !== 'object' : !Array.isArray(data.products))) {
             throw new Error('Response is not a Shopify products payload.');
         }
 
-        const products: any[] = data.products;
+        const products: any[] = single ? [data.product] : data.products;
         if (products.length > MAX_PRODUCTS_PER_PAGE) {
             throw new Error(`Shopify response contained more than ${MAX_PRODUCTS_PER_PAGE} products.`);
         }
+        stats.validResponses = (stats.validResponses ?? 0) + 1;
 
         if (products.length === 0) {
             log.info(`${storeDomain}: no more products (page ${page}). Total ${collected}.`);
             return;
         }
 
-        let count = collected;
+        let count = storeCounts.get(origin) ?? 0;
         let pushedThisPage = 0;
         let skippedInvalidThisPage = 0;
 
         for (const p of products) {
             if (count >= maxProductsPerStore || spendingLimitReached) break;
+            if (!p || typeof p !== 'object') { skippedInvalidThisPage++; continue; }
             if (productType && String(p.product_type ?? '').toLowerCase() !== productType) continue;
 
             const record = mapProduct(p, origin, storeDomain, count + 1);
@@ -171,38 +190,71 @@ export function buildRouter(opts: RouterOpts) {
                 skippedInvalidThisPage += 1;
                 continue;
             }
+            const key = `${origin}:${record.productId}`;
+            if (seen.has(key)) continue;
 
-            const chargeResult = await Actor.pushData(record, 'product-scraped');
+            const chargeResult = await (opts.pushData ?? ((row, event) => Actor.pushData(row, event)))(record, 'product-scraped');
             const recordWasSaved = chargeResult.chargedCount > 0 || !chargeResult.eventChargeLimitReached;
             if (recordWasSaved) {
+                seen.add(key);
                 count += 1;
                 pushedThisPage += 1;
                 chargedProductCount += 1;
                 stats.savedProducts += 1;
+                storeCounts.set(origin, count);
             }
 
             if (chargeResult.eventChargeLimitReached) {
                 spendingLimitReached = true;
-                await Actor.setStatusMessage(`Stopped at the user's spending limit after ${chargedProductCount} products`);
+                stats.spendingLimitReached = true;
+                await (opts.setStatus ?? ((message) => Actor.setStatusMessage(message)))(`Stopped at the user's spending limit after ${chargedProductCount} products`);
                 log.warning('User spending limit reached; stopping before more Shopify requests.');
                 await crawler.autoscaledPool?.abort();
                 break;
             }
         }
+        if (skippedInvalidThisPage > 0 && pushedThisPage === 0 && count === 0 && !spendingLimitReached) {
+            throw new Error('Shopify returned product rows, but no matching row had valid billing fields.');
+        }
+        const signature = `${endpoint}:${products.map((product) => product?.id ?? product?.handle ?? '').join('|')}`;
+        if (page > 1 && pageSignatures.has(signature)) {
+            stats.repeatedPage = true;
+            log.warning(`${storeDomain}: source repeated an earlier page; pagination stopped without duplicate charges.`);
+            return;
+        }
+        pageSignatures.add(signature);
 
         log.info(`${storeDomain}: pushed ${pushedThisPage} products (total ${count}/${maxProductsPerStore}) [page ${page}]`, {
             skippedInvalidThisPage,
         });
+        if (page >= 20 && count < maxProductsPerStore && products.length >= pageSizeFor(maxProductsPerStore, productType)) {
+            stats.pageLimitReached = true;
+            log.warning(`${storeDomain}: stopped at the 20-page safety limit; results may be partial.`);
+        }
 
         // Paginate while the page was full and we're under the cap.
-        if (!spendingLimitReached && count < maxProductsPerStore && products.length >= 250) {
+        if (!single && !spendingLimitReached && count < maxProductsPerStore && page < 20
+            && products.length >= pageSizeFor(maxProductsPerStore, productType)
+            && (pushedThisPage > 0 || productType !== '')) {
             const nextPage = page + 1;
             await crawler.addRequests([
                 {
-                    url: `${origin}/products.json?limit=250&page=${nextPage}`,
-                    userData: { storeDomain, origin, page: nextPage, collected: count },
+                    url: pageUrl(endpoint, nextPage, pageSizeFor(maxProductsPerStore, productType), false),
+                    userData: { storeDomain, origin, endpoint, single, page: nextPage, collected: count },
                 },
             ]);
         }
+    };
+    // Multiple collection URLs from the same store may complete concurrently.
+    // Serialize persistence per store so the cap and dedup checks remain atomic.
+    return async (ctx: HttpCrawlingContext): Promise<void> => {
+        const key = String(ctx.request.userData.origin);
+        const previous = storeLocks.get(key) ?? Promise.resolve();
+        let release!: () => void;
+        const pending = new Promise<void>((resolve) => { release = resolve; });
+        storeLocks.set(key, pending);
+        await previous;
+        try { await handle(ctx); }
+        finally { release(); if (storeLocks.get(key) === pending) storeLocks.delete(key); }
     };
 }

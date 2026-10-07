@@ -4,11 +4,11 @@ import { normalizeInput } from './input.js';
 import type { ActorInput, RunStats } from './types.js';
 import { buildRouter } from './routes.js';
 import { createOfficialDemoRecord } from './demo-fixture.js';
+import { planStoreRequest, pageUrl, pageSizeFor } from './request-plan.js';
 import {
     assertAuthorizedUse,
     assertPublicNetworkTarget,
     isOfficialDemoOrigin,
-    normalizeStoreOrigin,
 } from './url-safety.js';
 
 await Actor.init();
@@ -23,7 +23,8 @@ const {
     proxyConfiguration: proxyInput,
 } = normalizedInput;
 
-const origins = [...new Set(storeUrls.map(normalizeStoreOrigin))];
+const plans = [...new Map(storeUrls.map((raw) => { const plan = planStoreRequest(raw); return [plan.endpoint, plan] as const; })).values()];
+const origins = [...new Set(plans.map((plan) => plan.origin))];
 
 if (origins.length === 0) {
     throw new Error('No valid store URLs provided.');
@@ -45,6 +46,11 @@ const stats: RunStats = {
     failedRequests: 0,
     skippedRequests: 0,
 };
+const charging = Actor.getChargingManager();
+function hasProductAllowance(): boolean {
+    return !charging.getPricingInfo().isPayPerEvent
+        || charging.calculateMaxEventChargeCountWithinLimit('product-scraped') >= 1;
+}
 
 for (const _origin of demoOrigins) {
     const record = createOfficialDemoRecord(stats.savedProducts + 1);
@@ -58,9 +64,9 @@ for (const _origin of demoOrigins) {
     stats.savedProducts += 1;
 }
 
-const startRequests = liveOrigins.map((origin) => ({
-    url: `${origin}/products.json?limit=250&page=1`,
-    userData: { storeDomain: new URL(origin).host, origin, page: 1, collected: 0 },
+const startRequests = plans.filter((plan) => !isOfficialDemoOrigin(plan.origin)).map(({ origin, endpoint, single }) => ({
+    url: pageUrl(endpoint, 1, pageSizeFor(maxProductsPerStore, productType), single),
+    userData: { storeDomain: new URL(origin).host, origin, endpoint, single, page: 1, collected: 0 },
 }));
 
 const router = buildRouter({
@@ -73,7 +79,7 @@ const crawler = new HttpCrawler({
     proxyConfiguration,
     requestHandler: router,
     additionalMimeTypes: ['application/json', 'text/plain'],
-    maxConcurrency: 5,
+    maxConcurrency: 2,
     maxRequestsPerMinute: 60,
     maxRequestRetries: 1,
     requestHandlerTimeoutSecs: 45,
@@ -86,25 +92,36 @@ const crawler = new HttpCrawler({
     },
     preNavigationHooks: [
         async ({ request }, gotOptions) => {
+            if (!hasProductAllowance()) {
+                stats.spendingLimitReached = true;
+                request.noRetry = true;
+                throw new Error('Product spending allowance exhausted before fetching the next page.');
+            }
             await assertPublicNetworkTarget(new URL(request.url).origin);
             gotOptions.followRedirect = false;
         },
     ],
     sessionPoolOptions: { maxPoolSize: 50, sessionOptions: { maxUsageCount: 30 } },
     failedRequestHandler: async ({ request }, error) => {
+        if (stats.spendingLimitReached) return;
         stats.failedRequests += 1;
         log.warning(`Failed: ${request.url} - ${(error as Error)?.message ?? error}`);
     },
 });
 
-if (startRequests.length > 0) {
+if (startRequests.length > 0 && hasProductAllowance()) {
     await crawler.run(startRequests);
+} else if (startRequests.length > 0) {
+    stats.spendingLimitReached = true;
 }
-if (stats.savedProducts === 0) {
+await Actor.setValue('RUN_SUMMARY', { ...stats,
+    partial: stats.failedRequests > 0 || stats.skippedRequests > 0 || !!stats.pageLimitReached || !!stats.repeatedPage,
+});
+if (stats.savedProducts === 0 && !stats.spendingLimitReached && !(stats.validResponses && stats.failedRequests === 0 && stats.skippedRequests === 0)) {
     throw new Error(
         `Shopify scrape finished with no saved products. Failed requests: ${stats.failedRequests}; skipped requests: ${stats.skippedRequests}.`,
     );
 }
-await Actor.setStatusMessage(`Finished with ${stats.savedProducts} Shopify products`);
+await Actor.setStatusMessage(`${stats.spendingLimitReached ? 'Stopped at spending limit' : 'Finished'} with ${stats.savedProducts} Shopify products; ${stats.failedRequests} failed requests`);
 log.info('Shopify scrape finished.');
 await Actor.exit();

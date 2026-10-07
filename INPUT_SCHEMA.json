@@ -6,7 +6,7 @@
   "properties": {
     "storeUrls": {
       "title": "Shopify Store URLs / Domains",
-      "description": "List of Shopify storefront domains or HTTPS URLs. The default is Shopify's official Mock.Shop demo.",
+      "description": "Store domains, clean collection URLs (/collections/handle), or product URLs (/products/handle). Unsupported paths, queries and fragments are rejected, not silently expanded to the whole store. The default is an explicitly labeled bundled Mock.Shop demo, not a live scrape.",
       "type": "array",
       "editor": "stringList",
       "minItems": 1,

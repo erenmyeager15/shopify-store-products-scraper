@@ -3,7 +3,45 @@ import test from 'node:test';
 
 import { normalizeInput } from '../dist/input.js';
 import { createOfficialDemoRecord } from '../dist/demo-fixture.js';
-import { isBillableProductRecord, mapProduct } from '../dist/routes.js';
+import { buildRouter, isBillableProductRecord, mapProduct } from '../dist/routes.js';
+import { planStoreRequest, pageSizeFor, pageUrl } from '../dist/request-plan.js';
+
+test('preserves product and collection scope and reduces small-request payloads', () => {
+    assert.deepEqual(planStoreRequest('example.com/collections/shoes'), {
+        origin: 'https://example.com', endpoint: 'https://example.com/collections/shoes/products.json', single: false,
+    });
+    assert.equal(planStoreRequest('example.com/collections/shoes/products/red-shoe').endpoint, 'https://example.com/products/red-shoe.json');
+    assert.equal(planStoreRequest('example.com/products/red-shoe.json').single, true);
+    assert.throws(() => planStoreRequest('example.com/admin'), /Unsupported/);
+    assert.throws(() => planStoreRequest('example.com/collections/shoes?filter=blue'), /query/);
+    assert.equal(pageSizeFor(1, ''), 1);
+    assert.equal(pageSizeFor(1000, ''), 250);
+    assert.equal(pageSizeFor(1, 'shoes'), 250);
+    assert.equal(pageUrl('https://example.com/products.json', 2, 25, false), 'https://example.com/products.json?limit=25&page=2');
+});
+
+test('pairs price and compare-at from the same variant and exposes all variants', () => {
+    const record = mapProduct({ ...shopifyProduct, variants: [
+        { id: 1, price: '80', compare_at_price: '100', sku: 'a', available: false },
+        { id: 2, price: '50', compare_at_price: '200', sku: 'b' },
+    ] }, 'https://example.com', 'example.com', 1);
+    assert.equal(record.price, 50);
+    assert.equal(record.mrp, 200);
+    assert.equal(record.discountPercent, 75);
+    assert.equal(record.priceMax, 80);
+    assert.equal(record.variants.length, 2);
+    assert.equal(record.variants[1].sku, 'b');
+    assert.equal(record.inStock, null);
+    assert.equal(record.images.length, 1);
+});
+
+test('rejects corrupt or negative prices rather than charging for them', () => {
+    for (const price of ['12USD', '-4', -4, Infinity, '']) {
+        const record = mapProduct({ ...shopifyProduct, variants: [{ price }] }, 'https://example.com', 'example.com', 1);
+        assert.equal(record.price, null);
+        assert.equal(isBillableProductRecord(record), false);
+    }
+});
 import {
     assertAuthorizedUse,
     assertPublicNetworkTarget,
@@ -42,6 +80,86 @@ const shopifyProduct = {
         { src: '//cdn.shopify.com/s/files/example/tree-runner.png' },
     ],
 };
+
+function routerHarness(overrides = {}) {
+    const stats = { savedProducts: 0, failedRequests: 0, skippedRequests: 0 };
+    const saved = [], queued = [];
+    let aborted = 0;
+    const router = buildRouter({ maxProductsPerStore: 3, productType: '', stats,
+        pushData: async (row, event) => { saved.push({ row, event }); return { chargedCount: 1, eventChargeLimitReached: false }; },
+        setStatus: async () => {}, ...overrides,
+    });
+    const run = async (products, userData = {}, single = false) => router({
+        body: Buffer.from(JSON.stringify(single ? { product: products[0] } : { products })),
+        request: { userData: { origin: 'https://example.com', endpoint: 'https://example.com/products.json',
+            storeDomain: 'example.com', page: 1, collected: 0, single, ...userData } },
+        crawler: { addRequests: async (requests) => { queued.push(...requests); }, autoscaledPool: { abort: async () => { aborted++; } } },
+    });
+    return { stats, saved, queued, run, aborted: () => aborted };
+}
+
+test('router prevents duplicate billing across requests and enforces cap across store scopes', async () => {
+    const h = routerHarness({ maxProductsPerStore: 2 });
+    await h.run([shopifyProduct, { ...shopifyProduct, id: 2 }]);
+    await h.run([shopifyProduct, { ...shopifyProduct, id: 3 }], { endpoint: 'https://example.com/collections/shoes/products.json' });
+    assert.equal(h.saved.length, 2);
+    assert.equal(h.stats.savedProducts, 2);
+    assert.equal(h.queued.length, 0);
+    assert.ok(h.saved.every((row) => row.event === 'product-scraped'));
+});
+
+test('router handles single-product responses and valid empty results', async () => {
+    const h = routerHarness();
+    await h.run([shopifyProduct], {}, true);
+    await h.run([]);
+    assert.equal(h.saved.length, 1);
+    assert.equal(h.queued.length, 0);
+    assert.equal(h.stats.validResponses, 2);
+});
+
+test('concurrent scopes cannot exceed the per-store cap', async () => {
+    const h = routerHarness({ maxProductsPerStore: 1 });
+    await Promise.all([h.run([shopifyProduct]), h.run([{ ...shopifyProduct, id: 2 }])]);
+    assert.equal(h.saved.length, 1);
+});
+
+test('nonempty malformed products do not become a successful empty catalog', async () => {
+    const h = routerHarness();
+    await assert.rejects(h.run([{ id: 123, title: 'Broken', handle: 'broken' }]), /no matching row/);
+    assert.equal(h.saved.length, 0);
+});
+
+test('repeated source pages stop filtered pagination without new charges', async () => {
+    const h = routerHarness({ productType: 'shoes' });
+    const products = Array.from({ length: 250 }, (_, i) => ({ ...shopifyProduct, id: i, product_type: 'Other' }));
+    await h.run(products);
+    await h.run(products, { page: 2 });
+    assert.equal(h.queued.length, 1);
+    assert.equal(h.saved.length, 0);
+    assert.equal(h.stats.repeatedPage, true);
+});
+
+test('router stops on charging limit and never counts the rejected record', async () => {
+    let pushes = 0;
+    const h = routerHarness({ pushData: async () => { pushes++; return { chargedCount: 0, eventChargeLimitReached: true }; } });
+    await h.run([shopifyProduct, { ...shopifyProduct, id: 2 }]);
+    await h.run([shopifyProduct]);
+    assert.equal(pushes, 1);
+    assert.equal(h.stats.savedProducts, 0);
+    assert.equal(h.stats.spendingLimitReached, true);
+    assert.equal(h.aborted(), 1);
+});
+
+test('filtered pagination retains collection endpoint and stops at safety bound', async () => {
+    const h = routerHarness({ productType: 'shoes' });
+    const products = Array.from({ length: 250 }, (_, i) => ({ ...shopifyProduct, id: i + 1, product_type: 'Other' }));
+    await h.run(products, { endpoint: 'https://example.com/collections/red/products.json' });
+    assert.equal(h.queued.length, 1);
+    assert.equal(h.queued[0].url, 'https://example.com/collections/red/products.json?limit=250&page=2');
+    await h.run(products, { page: 20 });
+    assert.equal(h.queued.length, 1);
+    assert.equal(h.stats.pageLimitReached, true);
+});
 
 test('normalizes default input to Shopify official demo', () => {
     const input = normalizeInput({});

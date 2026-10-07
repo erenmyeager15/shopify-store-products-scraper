@@ -17,6 +17,10 @@ export interface RunStats {
     savedProducts: number;
     failedRequests: number;
     skippedRequests: number;
+    validResponses?: number;
+    spendingLimitReached?: boolean;
+    pageLimitReached?: boolean;
+    repeatedPage?: boolean;
 }
 
 export interface VariantRecord {
@@ -51,4 +55,9 @@ export interface ProductRecord {
     productUrl: string | null;
     imageUrl: string | null;
     scrapedAt: string;
+    variants: VariantRecord[];
+    priceMax: number | null;
+    images: string[];
+    description: string | null;
+    tags: string[];
 }

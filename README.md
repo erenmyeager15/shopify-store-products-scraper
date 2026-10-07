@@ -26,6 +26,10 @@ For a real store, replace the demo domain and set `confirmAuthorizedUse` to `tru
 
 ## What It Extracts
 
+Products include nested `variants` (SKU, price, compare-at price and availability), `priceMax`, all returned `images`, plain-text `description`, and `tags`, without additional product-detail requests or per-variant charges. Missing availability stays unknown instead of becoming false. The headline discount pairs the lowest price with that same variant's compare-at value.
+
+Use clean `/collections/handle` and `/products/handle` URLs to narrow scope. Unsupported paths and query filters are rejected rather than silently scraping the entire store. Duplicate products across scopes are saved once, and the per-store cap is shared. Listing requests ask for fewer rows on small unfiltered jobs; pagination stops at 20 pages or a repeated source page. `RUN_SUMMARY` exposes partial results and stop conditions.
+
 - Source, store/domain query, result position, and product ID
 - Product title, brand/vendor, and product type
 - Lowest variant price, compare-at/MRP, discount percentage, and currency placeholder
@@ -60,7 +64,7 @@ Cost-control tips:
 - Increase the product limit only after the first run confirms the output fits your use case.
 - Use `productType` when you only need one store category.
 - Keep proxy off unless the store owner has authorized proxy-based access.
-- Use the run's maximum cost setting if you want a strict spending cap.
+- Use the run's maximum charge setting to limit product-event charges. Delayed platform/proxy accounting means this is not a guaranteed cap on every infrastructure cost.
 
 ## Input Fields
 
@@ -108,7 +112,7 @@ Cost-control tips:
 - Some stores disable or protect `products.json`; those stores are not accessible with this Actor.
 - Shopify catalogs can expose different fields by theme/app setup. Missing values are saved as `null` or `N/A`.
 - Rows without a product ID, title, price, or product URL are rejected before billing.
-- The Actor fails zero-product runs instead of silently reporting success with no saved products.
+- Blocked/malformed zero-product runs fail. Valid empty catalogs or zero matches complete with zero results; spending-limit stops are explicitly reported. Pagination-limit and repeated-page stops are marked partial.
 
 ## Responsible Use
 

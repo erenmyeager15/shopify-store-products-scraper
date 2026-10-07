@@ -4,6 +4,12 @@
   "description": "Structured Shopify product catalog records with explicit live-storefront or bundled-demo origin, titles, brands, product types, prices, MRP, discounts, stock status, product URLs, image URLs, store domains, and scraped timestamps.",
   "type": "object",
   "properties": {
+    "runSummary": {
+      "type": "string",
+      "title": "Run coverage and stop reason",
+      "description": "Saved products, failed requests, valid responses, spending-limit and pagination-limit indicators.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN_SUMMARY"
+    },
     "results": {
       "type": "string",
       "title": "Shopify product records",

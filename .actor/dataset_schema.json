@@ -3,6 +3,11 @@
   "fields": {
     "type": "object",
     "properties": {
+      "variants": { "type": "array", "title": "Variants and SKUs" },
+      "priceMax": { "type": ["number", "null"], "title": "Maximum variant price" },
+      "images": { "type": "array", "title": "Images" },
+      "description": { "type": ["string", "null"], "title": "Description" },
+      "tags": { "type": "array", "title": "Tags" },
       "source": { "type": "string", "title": "Source" },
       "dataOrigin": { "type": "string", "title": "Data origin" },
       "isDemo": { "type": "boolean", "title": "Demo" },
@@ -39,6 +44,11 @@
           "title",
           "brand",
           "price",
+          "priceMax",
+          "variants",
+          "images",
+          "description",
+          "tags",
           "mrp",
           "discountPercent",
           "currency",
