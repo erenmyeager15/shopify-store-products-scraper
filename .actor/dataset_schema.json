@@ -20,6 +20,22 @@
       "mrp": { "type": ["number", "null"], "title": "MRP" },
       "discountPercent": { "type": ["number", "null"], "title": "Discount %" },
       "currency": { "type": "string", "title": "Currency" },
+      "currencySource": { "type": "string", "title": "Currency evidence" },
+      "watchlistName": { "type": "string", "title": "Watchlist" },
+      "monitoringStatus": { "type": "string", "title": "Observation status" },
+      "changes": { "type": "array", "title": "Product signals" },
+      "variantChanges": { "type": "array", "title": "Variant signals" },
+      "previousPrice": { "type": ["number", "null"], "title": "Previous minimum price" },
+      "priceChange": { "type": ["number", "null"], "title": "Minimum price delta" },
+      "priceChangePercent": { "type": ["number", "null"], "title": "Minimum price change %" },
+      "previousInStock": { "type": ["boolean", "null"], "title": "Previous availability" },
+      "firstObservedAt": { "type": "string", "title": "First observed" },
+      "observationCount": { "type": "integer", "title": "Delivered observations" },
+      "historyPoints": { "type": "integer", "title": "Retained observations" },
+      "minObservedPrice": { "type": ["number", "null"], "title": "Retained-window minimum" },
+      "maxObservedPrice": { "type": ["number", "null"], "title": "Retained-window maximum" },
+      "priceComparisonBasis": { "type": "string", "title": "Price comparison evidence" },
+      "dataQualityWarnings": { "type": "array", "title": "Evidence warnings" },
       "packSize": { "type": "string", "title": "Pack size" },
       "category": { "type": "string", "title": "Category" },
       "rating": { "type": ["number", "null"], "title": "Rating" },
@@ -31,6 +47,29 @@
     }
   },
   "views": {
+    "monitoring": {
+      "title": "Price & Stock Watchlist",
+      "transformation": {
+        "fields": ["searchQuery", "title", "productId", "monitoringStatus", "changes", "variantChanges", "price", "previousPrice", "priceChangePercent", "currency", "currencySource", "inStock", "previousInStock", "firstObservedAt", "observationCount", "historyPoints", "minObservedPrice", "maxObservedPrice", "priceComparisonBasis", "dataQualityWarnings", "productUrl", "scrapedAt"]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "searchQuery": { "label": "Store", "format": "text" },
+          "title": { "label": "Product", "format": "text" },
+          "monitoringStatus": { "label": "Observation", "format": "text" },
+          "price": { "label": "Min price", "format": "number" },
+          "previousPrice": { "label": "Previous min price", "format": "number" },
+          "priceChangePercent": { "label": "Change %", "format": "number" },
+          "currency": { "label": "Currency", "format": "text" },
+          "currencySource": { "label": "Currency basis", "format": "text" },
+          "inStock": { "label": "Public availability", "format": "boolean" },
+          "observationCount": { "label": "Observations", "format": "number" },
+          "productUrl": { "label": "Product", "format": "link" },
+          "scrapedAt": { "label": "Checked", "format": "date" }
+        }
+      }
+    },
     "products": {
       "title": "Products",
       "transformation": {
@@ -52,6 +91,7 @@
           "mrp",
           "discountPercent",
           "currency",
+          "currencySource",
           "packSize",
           "category",
           "rating",

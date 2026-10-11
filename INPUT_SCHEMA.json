@@ -1,6 +1,6 @@
 {
-  "title": "Shopify Store Products Scraper",
-  "description": "Extract public product catalog data from Shopify storefronts you own, administer, or have permission to monitor. The default uses Shopify's official Mock.Shop demo.",
+  "title": "Shopify Catalog & Price / Stock Watchlist",
+  "description": "Export authorized storefront catalogs or track repeat price/availability observations for US merchants and ecommerce agencies. The prefilled demo is a labeled bundled fixture, not live market data.",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
@@ -29,7 +29,43 @@
       "description": "Only keep products whose product type matches this exactly (case-insensitive). Leave empty for all.",
       "type": "string",
       "editor": "textfield",
+      "maxLength": 200,
       "default": ""
+    },
+    "trackChanges": {
+      "title": "Track prices, stock and variant changes",
+      "description": "Compare successfully saved live products with private history under the same watchlist. Includes JSON, changes CSV and a readable report without additional source requests or alert events. Every saved live product is still charged, including unchanged ones. Demo rows do not advance history.",
+      "type": "boolean",
+      "editor": "checkbox",
+      "default": false,
+      "prefill": false
+    },
+    "watchlistName": {
+      "title": "Watchlist name for repeat runs",
+      "description": "Reuse the same name and scope for comparisons. Use different names for different clients. Do not overlap runs of the same watchlist. Scope, filter, product limit and declared currency changes create a separate baseline.",
+      "type": "string",
+      "editor": "textfield",
+      "default": "shopify-us-watchlist",
+      "prefill": "shopify-us-watchlist",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$"
+    },
+    "maxHistoryPoints": {
+      "title": "Recent observations retained per product",
+      "description": "Keep 2–30 saved price/availability observations per product (default 10). First-observed time and total count remain available. Bounded history is not an unlimited archive.",
+      "type": "integer",
+      "editor": "number",
+      "default": 10,
+      "prefill": 10,
+      "minimum": 2,
+      "maximum": 30
+    },
+    "storeCurrency": {
+      "title": "Declared currency (optional, e.g. USD)",
+      "description": "Only declare a three-letter code if you know all selected feeds use it. This is user-provided, not independently verified. Leave empty to keep currency unknown; raw value changes remain visible but currency-dependent deltas/percent alerts are withheld. US audience does not imply USD. Use separate runs for different currencies.",
+      "type": "string",
+      "editor": "textfield",
+      "default": "",
+      "pattern": "^$|^[A-Za-z]{3}$"
     },
     "confirmAuthorizedUse": {
       "title": "I am authorized to monitor these stores",

@@ -34,23 +34,25 @@ export function normalizeStoreOrigin(raw: string): string {
     if (!value) throw new Error('Store URL must not be empty.');
 
     const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : `https://${value}`;
-    const url = new URL(withProtocol);
+    let url: URL;
+    try { url = new URL(withProtocol); }
+    catch { throw new Error('Store URL is invalid.'); }
     const hostname = normalizedHostname(url);
 
     if (url.protocol !== 'https:') {
-        throw new Error(`Store URL must use HTTPS: ${raw}`);
+        throw new Error('Store URL must use HTTPS.');
     }
     if (url.username || url.password) {
-        throw new Error(`Store URL must not include credentials: ${raw}`);
+        throw new Error('Store URL must not include credentials.');
     }
     if (url.port) {
-        throw new Error(`Store URL must not include a custom port: ${raw}`);
+        throw new Error('Store URL must not include a custom port.');
     }
     if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost')) {
-        throw new Error(`Store URL must use a public hostname: ${raw}`);
+        throw new Error('Store URL must use a public hostname.');
     }
     if (isIP(hostname) && !isGloballyRoutable(hostname)) {
-        throw new Error(`Store URL resolves to a non-public address: ${raw}`);
+        throw new Error('Store URL resolves to a non-public address.');
     }
 
     return `https://${hostname}`;

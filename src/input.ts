@@ -6,6 +6,10 @@ export interface NormalizedInput {
     maxProductsPerStore: number;
     productType: string;
     confirmAuthorizedUse: boolean;
+    trackChanges: boolean;
+    watchlistName: string;
+    maxHistoryPoints: number;
+    storeCurrency: string;
     proxyConfiguration?: ProxyInput;
 }
 
@@ -62,11 +66,22 @@ function asProxyConfiguration(value: unknown): ProxyInput | undefined {
 export function normalizeInput(raw: ActorInput = {}): NormalizedInput {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('Input must be a JSON object.');
 
+    const watchlistName = asString(raw.watchlistName, 'watchlistName', 'shopify-us-watchlist');
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(watchlistName)) fail('use 1–80 letters, digits, hyphens or underscores.', 'watchlistName');
+    const storeCurrency = asString(raw.storeCurrency, 'storeCurrency', '').toUpperCase();
+    if (storeCurrency && !/^[A-Z]{3}$/.test(storeCurrency)) fail('must be a three-letter currency code or empty.', 'storeCurrency');
+    const productType = asString(raw.productType, 'productType', '').toLowerCase();
+    if (productType.length > 200) fail('must be at most 200 characters.', 'productType');
+
     return {
         storeUrls: asStringArray(raw.storeUrls, 'storeUrls', [OFFICIAL_DEMO_HOST], 1, 5),
         maxProductsPerStore: asIntInRange(raw.maxProductsPerStore, 'maxProductsPerStore', DEFAULT_MAX_PRODUCTS_PER_STORE, 1, MAX_PRODUCTS_PER_STORE),
-        productType: asString(raw.productType, 'productType', ''),
+        productType,
         confirmAuthorizedUse: asBoolean(raw.confirmAuthorizedUse, 'confirmAuthorizedUse', false),
+        trackChanges: asBoolean(raw.trackChanges, 'trackChanges', false),
+        watchlistName,
+        maxHistoryPoints: asIntInRange(raw.maxHistoryPoints, 'maxHistoryPoints', 10, 2, 30),
+        storeCurrency,
         proxyConfiguration: asProxyConfiguration(raw.proxyConfiguration),
     };
 }

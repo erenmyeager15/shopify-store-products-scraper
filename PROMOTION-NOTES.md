@@ -1,52 +1,46 @@
-# Shopify Product Scraper Promotion Notes
+# US-focused Shopify watchlist positioning
 
-## Short tutorial ideas
+## Store title
 
-- "Scrape Shopify product catalogs to CSV with Apify"
-- "Track Shopify competitor prices from public storefront data"
-- "Export Shopify products.json rows without an API key"
+Shopify Product Scraper & Price / Stock Monitor
 
-## 60-second video script
+## Store description
 
-1. Open the Actor and show the one-product `allbirds.com` sample input.
-2. Point out `maxProductsPerStore: 1`, product type filter, and proxy off by default.
-3. Show an existing dataset row with title, brand, price, MRP, discount, stock, image, and product URL.
-4. Export the dataset as CSV or Excel.
-5. Mention cost controls: one store, one product, proxy off first, then scale gradually.
+Export authorized Shopify catalogs, track variant price and availability changes, and download history-aware JSON/CSV reports. Built for US ecommerce teams; no Shopify API key required.
 
-## LinkedIn draft
+## Primary audience
 
-I polished my Shopify Product Scraper on Apify for cleaner storefront catalog research.
+US Shopify merchants, DTC ecommerce teams, authorized agency/client-store workflows, and analysts with permission to monitor the selected stores. Supported feeds worldwide remain usable. US audience is not a reason to infer USD.
 
-It extracts public Shopify product rows from store domains, including product title, brand/vendor, product type, price, compare-at price, discount, stock status, image URL, product URL, and timestamp.
+## Search intent
 
-Best first run: `allbirds.com`, `maxProductsPerStore: 1`, proxy off. If a store protects `products.json`, enable Residential proxy and retry.
+Shopify product scraper; Shopify products.json export; Shopify price monitor; Shopify stock monitor; Shopify variant price history; Shopify SKU availability; DTC catalog monitoring; ecommerce agency watchlist; Shopify catalog CSV.
 
-Useful for ecommerce price snapshots, catalog monitoring, and public storefront research.
+## Activation workflow
 
-## Reddit / Discord draft
+1. Try the clearly labeled bundled Mock.Shop fixture; it is not live market data.
+2. Use one authorized client storefront and one live product with proxy off.
+3. Save a 25-product collection watchlist and enable tracking.
+4. Repeat with the same name/scope/currency and inspect the exact variant signals and CSV.
+5. After validation, the user can set an Apify task schedule in a suitable US timezone. Do not enable a recurring paid schedule on their behalf without authorization.
 
-I updated a Shopify storefront scraper on Apify that exports public product catalog rows to JSON/CSV/Excel.
+## Demonstration script
 
-It reads public `products.json` endpoints, supports multiple store domains, optional product type filtering, and one-product default runs. Output includes title, brand/vendor, product type, price, compare-at price, discount, stock status, image, and product URL.
+Show a synthetic or authorized-store baseline, then a matching repeat. Explain a variant-only price change while the minimum product price stays unchanged. Show unknown-currency handling, bounded scan warnings, confirmed history status and the changes CSV. Clearly label synthetic fixtures; never present them as a real merchant result.
 
-Default is intentionally tiny so people can test before scaling.
+## Pricing position
 
-## SEO keywords
+Retain $1.50 per 1,000 saved live products plus $0.00005 per start event. Each saved live product includes its returned variants and optional monitoring fields; unchanged products still incur the product event. No separate alert, trend or report events. Do not claim to be the cheapest: rivals advertise lower base prices and differing event structures.
 
-- Shopify scraper
-- Shopify product scraper
-- Shopify catalog scraper
-- Shopify price scraper
-- Shopify products.json scraper
-- Shopify product data export
-- Apify Shopify scraper
+## Publishing / promotion gate
+
+This 1.2 monitoring upgrade is local until a fresh approved cloud build/test sequence passes output, repeat history, reports, memory and recurring-cost gates. Do not announce it as live, publish this copy remotely, change prices, create customer notices or start ads before that gate passes.
 
 ## Guardrails
 
-- Do not claim official Shopify Admin API access.
-- Do not claim access to hidden, draft, admin, order, customer, or inventory-management data.
-- Do not position it as a seller contact, email, phone, or lead-generation scraper.
-- Do not promise every store is accessible; some stores protect or disable `products.json`.
-- Mention proxy and platform usage when discussing protected stores.
-- Use real output samples only.
+- Do not claim automatic email/Slack alerts or automatically created schedules.
+- Do not claim fuzzy cross-store SKU matching, private inventory quantities or complete market coverage.
+- Newly observed is not necessarily a launch; not seen is not necessarily deleted.
+- No implied permission from public access; no Residential bypass instruction.
+- Do not promise USD without source evidence/user declaration.
+- Do not promise profitability, customer conversion, first-page SEO placement or access to every storefront.

@@ -9,6 +9,9 @@ interface RouterOpts {
     stats: RunStats;
     pushData?: (record: ProductRecord, eventName: string) => Promise<{ chargedCount: number; eventChargeLimitReached: boolean }>;
     setStatus?: (message: string) => Promise<unknown>;
+    canContinue?: () => boolean;
+    prepareRecord?: (record: ProductRecord) => ProductRecord;
+    recordSaved?: (record: ProductRecord) => void;
 }
 
 const MAX_RESPONSE_BYTES = 15 * 1024 * 1024;
@@ -67,7 +70,8 @@ function parseBody(ctx: HttpCrawlingContext): any {
     if (!t.startsWith('{') && !t.startsWith('[')) {
         throw new Error('Non-JSON response (store blocked or not a Shopify store). Rotating session.');
     }
-    return JSON.parse(t);
+    try { return JSON.parse(t); }
+    catch { throw new Error('Malformed Shopify JSON response.'); }
 }
 
 export function isBillableProductRecord(record: ProductRecord): boolean {
@@ -87,8 +91,8 @@ export function mapProduct(
     const variants: VariantRecord[] = Array.isArray(p.variants)
         ? p.variants.filter((v: unknown) => v !== null && typeof v === 'object').map((v: any) => ({
               variantId: Number.isSafeInteger(toNum(v.id)) ? toNum(v.id) : null,
-              title: v.title ?? null,
-              sku: v.sku ? String(v.sku) : null,
+              title: typeof v.title === 'string' ? v.title : null,
+              sku: typeof v.sku === 'string' ? v.sku : null,
               price: toNum(v.price),
               compareAtPrice: toNum(v.compare_at_price),
               available: typeof v.available === 'boolean' ? v.available : null,
@@ -113,7 +117,8 @@ export function mapProduct(
         isDemo: dataOrigin === 'bundled_demo',
         searchQuery: textOrNA(storeDomain),
         position,
-        productId: p.id === null || p.id === undefined ? null : String(p.id),
+        productId: typeof p.id === 'number' && Number.isSafeInteger(p.id) && p.id > 0 ? String(p.id)
+            : typeof p.id === 'string' && /^[1-9]\d{0,19}$/.test(p.id) ? p.id : null,
         title: textOrNA(p.title),
         brand: textOrNA(p.vendor),
         price,
@@ -150,6 +155,14 @@ export function buildRouter(opts: RouterOpts) {
         const { request, crawler } = ctx;
 
         if (spendingLimitReached || stats.spendingLimitReached) return;
+        const stopAtBudget = async () => {
+            spendingLimitReached = true;
+            stats.spendingLimitReached = true;
+            // Do not await a pool shutdown from inside its own active handler.
+            void crawler.autoscaledPool?.abort().catch(() => {});
+            await (opts.setStatus ?? ((message) => Actor.setStatusMessage(message)))(`Stopped at the user's spending limit after ${chargedProductCount} products`);
+        };
+        if (opts.canContinue && !opts.canContinue()) { await stopAtBudget(); return; }
 
         const { storeDomain, origin, page, collected, endpoint, single } = request.userData as {
             storeDomain: string;
@@ -159,6 +172,10 @@ export function buildRouter(opts: RouterOpts) {
             endpoint: string;
             single: boolean;
         };
+
+        stats.endpoints ??= {};
+        const coverage = stats.endpoints[endpoint] ??= { origin, successfulPages: 0, complete: false,
+            stopReason: 'pending', invalidProducts: 0 };
 
         const data = parseBody(ctx);
         if (!data || typeof data !== 'object' || (single ? !data.product || typeof data.product !== 'object' : !Array.isArray(data.products))) {
@@ -170,8 +187,11 @@ export function buildRouter(opts: RouterOpts) {
             throw new Error(`Shopify response contained more than ${MAX_PRODUCTS_PER_PAGE} products.`);
         }
         stats.validResponses = (stats.validResponses ?? 0) + 1;
+        coverage.successfulPages += 1;
 
         if (products.length === 0) {
+            coverage.complete = true;
+            coverage.stopReason = 'exhausted';
             log.info(`${storeDomain}: no more products (page ${page}). Total ${collected}.`);
             return;
         }
@@ -179,9 +199,20 @@ export function buildRouter(opts: RouterOpts) {
         let count = storeCounts.get(origin) ?? 0;
         let pushedThisPage = 0;
         let skippedInvalidThisPage = 0;
+        let stoppedForCap = false;
+
+        const signature = `${endpoint}:${products.map((product) => product?.id ?? product?.handle ?? '').join('|')}`;
+        if (page > 1 && pageSignatures.has(signature)) {
+            stats.repeatedPage = true;
+            coverage.stopReason = 'repeated_page';
+            log.warning(`${storeDomain}: source repeated an earlier page; pagination stopped without duplicate charges.`);
+            return;
+        }
+        pageSignatures.add(signature);
 
         for (const p of products) {
-            if (count >= maxProductsPerStore || spendingLimitReached) break;
+            if (count >= maxProductsPerStore) { stoppedForCap = true; break; }
+            if (spendingLimitReached) break;
             if (!p || typeof p !== 'object') { skippedInvalidThisPage++; continue; }
             if (productType && String(p.product_type ?? '').toLowerCase() !== productType) continue;
 
@@ -193,7 +224,16 @@ export function buildRouter(opts: RouterOpts) {
             const key = `${origin}:${record.productId}`;
             if (seen.has(key)) continue;
 
-            const chargeResult = await (opts.pushData ?? ((row, event) => Actor.pushData(row, event)))(record, 'product-scraped');
+            if (opts.canContinue && !opts.canContinue()) { await stopAtBudget(); coverage.stopReason = 'spending_limit'; break; }
+            const output = opts.prepareRecord ? opts.prepareRecord(record) : record;
+            let chargeResult;
+            try {
+                chargeResult = await (opts.pushData ?? ((row, event) => Actor.pushData(row, event)))(output, 'product-scraped');
+            } catch {
+                request.noRetry = true;
+                coverage.stopReason = 'failed';
+                throw new Error('Shopify product persistence failed; source retry is disabled.');
+            }
             const recordWasSaved = chargeResult.chargedCount > 0 || !chargeResult.eventChargeLimitReached;
             if (recordWasSaved) {
                 seen.add(key);
@@ -202,33 +242,39 @@ export function buildRouter(opts: RouterOpts) {
                 chargedProductCount += 1;
                 stats.savedProducts += 1;
                 storeCounts.set(origin, count);
+                try { opts.recordSaved?.(output); }
+                catch {
+                    request.noRetry = true;
+                    coverage.stopReason = 'failed';
+                    throw new Error('Product delivered, but monitoring staging failed; source retry is disabled.');
+                }
             }
 
             if (chargeResult.eventChargeLimitReached) {
-                spendingLimitReached = true;
-                stats.spendingLimitReached = true;
-                await (opts.setStatus ?? ((message) => Actor.setStatusMessage(message)))(`Stopped at the user's spending limit after ${chargedProductCount} products`);
+                await stopAtBudget();
+                coverage.stopReason = 'spending_limit';
                 log.warning('User spending limit reached; stopping before more Shopify requests.');
-                await crawler.autoscaledPool?.abort();
                 break;
             }
         }
+        stats.invalidProducts = (stats.invalidProducts ?? 0) + skippedInvalidThisPage;
+        coverage.invalidProducts += skippedInvalidThisPage;
         if (skippedInvalidThisPage > 0 && pushedThisPage === 0 && count === 0 && !spendingLimitReached) {
             throw new Error('Shopify returned product rows, but no matching row had valid billing fields.');
         }
-        const signature = `${endpoint}:${products.map((product) => product?.id ?? product?.handle ?? '').join('|')}`;
-        if (page > 1 && pageSignatures.has(signature)) {
-            stats.repeatedPage = true;
-            log.warning(`${storeDomain}: source repeated an earlier page; pagination stopped without duplicate charges.`);
-            return;
+        if (!spendingLimitReached && !stoppedForCap && (single || products.length < pageSizeFor(maxProductsPerStore, productType))) {
+            coverage.complete = true;
+            coverage.stopReason = 'exhausted';
+        } else if (!spendingLimitReached && count >= maxProductsPerStore) {
+            coverage.stopReason = 'product_limit';
         }
-        pageSignatures.add(signature);
 
         log.info(`${storeDomain}: pushed ${pushedThisPage} products (total ${count}/${maxProductsPerStore}) [page ${page}]`, {
             skippedInvalidThisPage,
         });
         if (page >= 20 && count < maxProductsPerStore && products.length >= pageSizeFor(maxProductsPerStore, productType)) {
             stats.pageLimitReached = true;
+            coverage.stopReason = 'page_limit';
             log.warning(`${storeDomain}: stopped at the 20-page safety limit; results may be partial.`);
         }
 

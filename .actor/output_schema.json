@@ -1,7 +1,7 @@
 {
   "actorOutputSchemaVersion": 1,
-  "title": "Shopify Store Products Scraper Output",
-  "description": "Structured Shopify product catalog records with explicit live-storefront or bundled-demo origin, titles, brands, product types, prices, MRP, discounts, stock status, product URLs, image URLs, store domains, and scraped timestamps.",
+  "title": "Shopify Products & Watchlist Reports",
+  "description": "Catalog rows, coverage diagnostics and optional price/availability monitoring reports. Reports are produced only when live monitoring is enabled; they are not separate paid product rows.",
   "type": "object",
   "properties": {
     "runSummary": {
@@ -9,6 +9,23 @@
       "title": "Run coverage and stop reason",
       "description": "Saved products, failed requests, valid responses, spending-limit and pagination-limit indicators.",
       "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN_SUMMARY"
+    },
+    "monitoringReport": {
+      "type": "string",
+      "title": "Watchlist signals and history outcome (JSON)",
+      "description": "Optional monitoring counts, exact variant changes, coverage warnings and confirmed history save outcome.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/MONITORING-REPORT"
+    },
+    "changesCsv": {
+      "type": "string",
+      "title": "Changes-only CSV (monitoring enabled)",
+      "description": "Newly observed, changed and complete-scope not-seen signals, with spreadsheet-formula protection. All delivered products, including unchanged ones, remain in the billed dataset.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/CHANGES.csv"
+    },
+    "readableReport": {
+      "type": "string",
+      "title": "Readable watchlist report (Markdown)",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/MONITORING-REPORT.md"
     },
     "results": {
       "type": "string",
